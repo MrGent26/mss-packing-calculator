@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSS Packing Calculator</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --panel: #ffffff;
+    --ink: #1c2733;
+    --muted: #64748b;
+    --line: #dde3ea;
+    --accent: #1f6feb;
+    --accent-soft: #e7f0fe;
+    --good: #0a7f4f;
+    --warn-bg: #fff7e0;
+    --warn-ink: #8a6100;
+    --danger: #c0392b;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 60px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 22px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  button { font: inherit; cursor: pointer; }
+
+  /* Tab bar */
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 0; }
+  .tab {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #e9edf2; border: 1px solid var(--line); border-bottom: none;
+    border-radius: 8px 8px 0 0; padding: 8px 12px; color: var(--muted);
+    user-select: none; cursor: pointer; max-width: 220px;
+  }
+  .tab.active { background: var(--panel); color: var(--ink); font-weight: 600; position: relative; }
+  .tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--panel); }
+  .tab .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tab.active .name { cursor: text; }
+  .tab .close { border: none; background: none; color: var(--muted); font-size: 14px; line-height: 1; padding: 2px; border-radius: 4px; }
+  .tab .close:hover { color: var(--danger); background: #f3d6d2; }
+  .tab input.rename { font: inherit; font-weight: 600; border: 1px solid var(--accent); border-radius: 4px; padding: 1px 4px; width: 110px; }
+  .tab.total-tab { margin-left: auto; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .tab.total-tab.active { background: var(--panel); }
+  .addtab { border: 1px dashed var(--line); background: none; color: var(--accent); border-radius: 8px 8px 0 0; padding: 8px 12px; }
+  .addtab:hover { background: var(--accent-soft); }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 0 var(--radius) var(--radius) var(--radius);
+    padding: 20px;
+  }
+
+  /* Form */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px 18px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .field input[type="number"], .field input[type="text"], .field select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; background: #fbfcfe;
+  }
+  .field input:focus, .field select:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; background: #fbfcfe; padding: 8px 14px; color: var(--muted); }
+  .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+  .row.nowrap { flex-wrap: nowrap; }
+  .row.nowrap .field { flex: 1; min-width: 0; }
+  .divider { border: none; border-top: 1px solid var(--line); margin: 18px 0; }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .flatwrap { display: flex; gap: 8px; align-items: center; }
+  .flatwrap input { width: 110px; }
+
+  /* Results */
+  .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 6px; }
+  .stat { background: #f8fafc; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+  .stat .k { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .stat .v { font-size: 24px; font-weight: 700; margin-top: 2px; }
+  .stat.primary { background: var(--accent-soft); border-color: #bcd4f8; }
+  .stat.primary .v { color: var(--accent); }
+  .stat .note { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .warning { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid #eedb9a; border-radius: 8px; padding: 8px 12px; margin: 10px 0 0; font-size: 13.5px; }
+  .incomplete { color: var(--muted); font-style: italic; padding: 14px 0 4px; }
+
+  /* Comparison */
+  details.compare { margin-top: 20px; }
+  details.compare summary {
+    cursor: pointer; font-weight: 600; color: var(--accent); user-select: none;
+    list-style: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  details.compare summary::before { content: "▸"; transition: transform .15s; }
+  details.compare[open] summary::before { transform: rotate(90deg); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 4px 10px; font-weight: 600; font-size: 13px; }
+  .chip button { border: none; background: none; color: inherit; padding: 0; font-size: 13px; }
+  .chip button:hover { color: var(--danger); }
+  .chips input { width: 64px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+  .chips .add { border: none; background: var(--accent); color: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; border-bottom: 2px solid var(--line); }
+  .cur { background: var(--accent-soft); }
+  .best { color: var(--good); font-weight: 700; }
+  .tablewrap { overflow-x: auto; }
+
+  /* Order total */
+  .grand { display: flex; justify-content: flex-end; align-items: baseline; gap: 14px; margin-top: 16px; padding-top: 14px; border-top: 2px solid var(--ink); }
+  .grand .label { font-weight: 600; color: var(--muted); }
+  .grand .amount { font-size: 30px; font-weight: 800; color: var(--accent); }
+  .flag { color: var(--warn-ink); font-style: italic; font-size: 13px; text-align: left; }
+  .clear { border: 1px solid var(--line); background: var(--panel); color: var(--danger); border-radius: 8px; padding: 7px 12px; font-size: 13px; }
+  .clear:hover { background: #fdf1ef; }
+  .muted { color: var(--muted); }
+  @media print { .tabs, .clear, .chips, header .sub { display: none; } .panel { border: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>MSS Packing Calculator</h1>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.0</span></div>
+    </div>
+    <button class="clear" onclick="clearOrder()">Clear order</button>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div class="panel" id="panel"></div>
+</div>
+
+<script>
+'use strict';
+
+const STORE_KEY = 'prepCostCalcV1';
+
+function newItem(id) {
+  return {
+    id,
+    name: 'Item ' + id,
+    soldByCase: false,
+    casePack: '0',
+    packSize: '0',
+    mode: 'itemized',          // 'itemized' | 'flat'
+    bagCost: '0.25',
+    labelCost: '0.25',
+    caseLabelCost: '0.25',
+    flatRate: '',
+    casesPerPallet: '',
+    casesOrdered: '',
+    compareSizes: [],
+  };
+}
+
+let state = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && Array.isArray(s.items) && s.items.length) return s;
+    }
+  } catch (e) { /* fall through to fresh state */ }
+  return { items: [newItem(1)], active: 1, nextId: 2 };
+}
+
+function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+function num(v) {
+  if (v === '' || v === null || v === undefined) return null;
+  const n = parseFloat(v);
+  return (isFinite(n) && n >= 0) ? n : null;
+}
+
+// ---------- math ----------
+function costPerCase(it, packSize) {
+  // returns {perCase, packs, warning} or {error}
+  const caseLabel = num(it.caseLabelCost);
+  const casePack = num(it.casePack);
+
+  if (it.soldByCase) {
+    if (caseLabel === null) return { error: 'Enter the packing label cost.' };
+    return { perCase: caseLabel, packs: null, warning: null };
+  }
+
+  if (!casePack || casePack <= 0) return { error: 'Enter the case pack (units per case).' };
+  if (!packSize || packSize <= 0) return { error: 'Enter the pack size (units per bag).' };
+
+  const exact = casePack / packSize;
+  const packs = Math.ceil(exact);
+  const warning = Number.isInteger(exact) ? null :
+    `${casePack} units don’t divide evenly into packs of ${packSize} — counting ${packs} packs (${Math.floor(exact)} full + 1 partial).`;
+
+  if (it.mode === 'itemized') {
+    const bag = num(it.bagCost), label = num(it.labelCost);
+    if (bag === null || label === null || caseLabel === null)
+      return { error: 'Enter the bag, ASIN label, and packing label costs.' };
+    return { perCase: packs * (bag + label) + caseLabel, packs, warning };
+  }
+
+  const rate = num(it.flatRate);
+  if (rate === null) return { error: 'Enter the flat fee rate.' };
+  return { perCase: packs * rate, packs, warning };
+}
+
+function compute(it, packSizeOverride) {
+  const packSize = packSizeOverride !== undefined ? packSizeOverride : num(it.packSize);
+  const r = costPerCase(it, packSize);
+  if (r.error) return r;
+  const casePack = num(it.casePack);
+  const pallets = num(it.casesPerPallet);
+  return {
+    perCase: r.perCase,
+    perPack: (!it.soldByCase && r.packs) ? r.perCase / r.packs : null,
+    perUnit: (!it.soldByCase && casePack) ? r.perCase / casePack : null,
+    perPallet: (pallets && pallets > 0) ? r.perCase * pallets : null,
+    packs: r.packs,
+    warning: r.warning,
+  };
+}
+
+// ordered quantity: total cases, with pallet breakdown derived from cases/pallet
+function orderedQty(it) {
+  const cases = num(it.casesOrdered);
+  if (!cases || cases <= 0) return { cases: null };
+  const perPallet = num(it.casesPerPallet);
+  let label = cases + ' case' + (cases === 1 ? '' : 's');
+  if (perPallet && perPallet > 0 && cases >= perPallet) {
+    const plt = Math.floor(cases / perPallet);
+    const loose = cases - plt * perPallet;
+    label += ` = ${plt} pallet${plt === 1 ? '' : 's'}${loose ? ` + ${loose} loose` : ''}`;
+  }
+  return { cases, label };
+}
+
+// ---------- money formatting ----------
+function fmt(n) {
+  if (n === null || n === undefined || !isFinite(n)) return '—';
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtUnit(n) { // per-unit is rounded UP to the nearest penny
+  if (n === null || n === undefined || !isFinite(n)) return '—';
+  return fmt(Math.ceil(n * 100 - 1e-9) / 100);
+}
+
+// ---------- state helpers ----------
+function activeItem() { return state.items.find(i => i.id === state.active) || null; }
+function set(itemId, key, value) {
+  const it = state.items.find(i => i.id === itemId);
+  if (!it) return;
+  it[key] = value;
+  save();
+}
+
+function addItem() {
+  const it = newItem(state.nextId++);
+  state.items.push(it);
+  state.active = it.id;
+  save(); render();
+}
+
+function deleteItem(id) {
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  if (!confirm(`Delete “${it.name}”?`)) return;
+  state.items = state.items.filter(i => i.id !== id);
+  if (!state.items.length) { state.items = [newItem(state.nextId++)]; }
+  if (state.active === id) state.active = state.items[0].id;
+  save(); render();
+}
+
+function resetItem(id) {
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  if (!confirm(`Reset all numbers on “${it.name}”?`)) return;
+  const fresh = newItem(it.id);
+  fresh.name = it.name;
+  state.items[state.items.indexOf(it)] = fresh;
+  save(); render();
+}
+
+function clearOrder() {
+  if (!confirm('Clear the whole order and start fresh?')) return;
+  state = { items: [newItem(1)], active: 1, nextId: 2 };
+  save(); render();
+}
+
+function switchTab(id) { state.active = id; save(); render(); }
+
+// ---------- rendering ----------
+const $tabs = document.getElementById('tabs');
+const $panel = document.getElementById('panel');
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function render() {
+  renderTabs();
+  if (state.active === 'total') renderTotal();
+  else renderItemPanel(activeItem());
+}
+
+function renderTabs() {
+  $tabs.innerHTML = '';
+  for (const it of state.items) {
+    const tab = document.createElement('div');
+    tab.className = 'tab' + (state.active === it.id ? ' active' : '');
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = it.name;
+    name.title = state.active === it.id ? 'Click to rename' : it.name;
+    tab.appendChild(name);
+    if (state.items.length > 1 || true) {
+      const x = document.createElement('button');
+      x.className = 'close'; x.textContent = '✕'; x.title = 'Delete item';
+      x.onclick = (e) => { e.stopPropagation(); deleteItem(it.id); };
+      tab.appendChild(x);
+    }
+    tab.onclick = () => {
+      if (state.active !== it.id) { switchTab(it.id); return; }
+      startRename(tab, name, it);
+    };
+    $tabs.appendChild(tab);
+  }
+  const add = document.createElement('button');
+  add.className = 'addtab'; add.textContent = '+ Add item';
+  add.onclick = addItem;
+  $tabs.appendChild(add);
+
+  const total = document.createElement('div');
+  total.className = 'tab total-tab' + (state.active === 'total' ? ' active' : '');
+  total.innerHTML = '<span class="name">Σ Order Total</span>';
+  total.onclick = () => switchTab('total');
+  $tabs.appendChild(total);
+}
+
+function startRename(tab, nameEl, it) {
+  if (tab.querySelector('input.rename')) return;
+  const input = document.createElement('input');
+  input.className = 'rename';
+  input.value = it.name;
+  nameEl.replaceWith(input);
+  input.focus(); input.select();
+  const commit = () => {
+    it.name = input.value.trim() || it.name;
+    save(); render();
+  };
+  input.onblur = commit;
+  input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = it.name; input.blur(); } };
+  input.onclick = (e) => e.stopPropagation();
+}
+
+function field(label, inputHtml, hint) {
+  return `<div class="field"><label>${label}</label>${inputHtml}${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
+}
+
+function renderItemPanel(it) {
+  if (!it) { $panel.innerHTML = ''; return; }
+  const soldSeg = `
+    <div class="field"><label>Resold by Case?</label>
+      <div class="seg">
+        <button class="${it.soldByCase ? 'on' : ''}" onclick="set(${it.id},'soldByCase',true);render()">Yes</button>
+        <button class="${!it.soldByCase ? 'on' : ''}" onclick="set(${it.id},'soldByCase',false);render()">No</button>
+      </div>
+      <div class="hint">${it.soldByCase ? 'Prep = just the packing label.' : 'Item gets bagged &amp; labeled.'}</div>
+    </div>`;
+
+  let inputs = `<div class="row">${soldSeg}</div>
+  <div class="row nowrap">
+    ${it.soldByCase ? '' : field('Case pack <span class="muted" style="font-weight:400">(units per case)</span>', numInput(it, 'casePack', 'e.g. 16', '1'), '')}
+    ${field('Cases in order', numInput(it, 'casesOrdered', 'e.g. 100', '1'), '')}
+    ${field('Cases per pallet <span class="muted" style="font-weight:400">(optional)</span>', numInput(it, 'casesPerPallet', 'e.g. 90', '1'), '')}
+  </div>`;
+
+  if (!it.soldByCase) {
+    const modeSeg = `
+      <div class="field"><label>Costing</label>
+        <div class="seg">
+          <button class="${it.mode === 'itemized' ? 'on' : ''}" onclick="set(${it.id},'mode','itemized');render()">Itemized</button>
+          <button class="${it.mode === 'flat' ? 'on' : ''}" onclick="set(${it.id},'mode','flat');render()">Flat fee</button>
+        </div>
+      </div>`;
+    if (it.mode === 'itemized') {
+      inputs += `<div class="row">
+        ${field('Pack size (units per bag)', numInput(it, 'packSize', '1 = each unit its own bag', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
+        ${modeSeg}
+      </div>
+      <div class="row nowrap">
+        ${field('Bag Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'bagCost', '0.25', '0.01'))}
+        ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.25', '0.01'))}
+        ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.25', '0.01'))}
+      </div>`;
+    } else {
+      inputs += `<div class="row">
+        ${field('Pack size (units per bag)', numInput(it, 'packSize', '1 = each unit its own bag', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
+        ${modeSeg}
+        ${field('Flat fee — all in <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'flatRate', 'e.g. 0.60', '0.01'), 'Pack size 1 = per unit')}
+      </div>`;
+    }
+  } else {
+    inputs += `<div class="row">
+      ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.25', '0.01'))}
+    </div>`;
+  }
+
+  const resetBtn = `<div style="display:flex;justify-content:flex-end;margin:-6px 0 10px">
+    <button class="clear" onclick="resetItem(${it.id})" title="Reset this item’s numbers to defaults">↺ Reset item</button>
+  </div>`;
+  $panel.innerHTML = resetBtn + inputs + '<hr class="divider"><div id="results"></div>' +
+    (!it.soldByCase ? compareHtml(it) : '');
+  renderResults(it);
+}
+
+function numInput(it, key, placeholder, step, extra) {
+  return `<input type="number" min="0" step="${step || 'any'}" value="${esc(it[key])}" placeholder="${esc(placeholder || '')}"
+    oninput="set(${it.id},'${key}',this.value);renderResults(activeItem())" ${extra || ''}>`;
+}
+
+// Enter in the pack-size box drops that size straight into the compare section
+function addPackToCompare(id, v) {
+  const it = state.items.find(i => i.id === id);
+  const n = parseFloat(v);
+  if (!it || !isFinite(n) || n <= 0) return;
+  if (!it.compareSizes.includes(n)) {
+    it.compareSizes.push(n);
+    it.compareSizes.sort((a, b) => a - b);
+    save();
+  }
+  const d = document.querySelector('details.compare');
+  if (d) d.open = true;
+  renderResults(activeItem());
+}
+
+function renderResults(it) {
+  const el = document.getElementById('results');
+  if (!el || !it) return;
+  const r = compute(it);
+  if (r.error) {
+    el.innerHTML = `<div class="incomplete">${esc(r.error)}</div>`;
+    refreshCompareTable(it);
+    return;
+  }
+  const qty = orderedQty(it);
+  const orderTotal = qty.cases ? r.perCase * qty.cases : null;
+  el.innerHTML = `
+    ${r.warning ? `<div class="warning" style="margin-bottom:10px">⚠️ ${esc(r.warning)}</div>` : ''}
+    <div class="results">
+      <div class="stat primary"><div class="k">Per case</div><div class="v">${fmt(r.perCase)}</div>
+        ${r.packs ? `<div class="note">${r.packs} pack${r.packs === 1 ? '' : 's'} per case</div>` : ''}</div>
+      ${it.soldByCase ? '' : `<div class="stat"><div class="k">Per pack</div><div class="v">${fmt(r.perPack)}</div></div>
+      <div class="stat"><div class="k">Per unit</div><div class="v">${fmtUnit(r.perUnit)}</div></div>`}
+      ${r.perPallet !== null ? `<div class="stat"><div class="k">Per pallet</div><div class="v">${fmt(r.perPallet)}</div>
+        <div class="note">${num(it.casesPerPallet)} cases</div></div>` : ''}
+      ${orderTotal !== null ? `<div class="stat"><div class="k">This order</div><div class="v">${fmt(orderTotal)}</div><div class="note">${esc(qty.label)}</div></div>` : ''}
+    </div>`;
+  refreshCompareTable(it);
+}
+
+// ---------- comparison ----------
+function compareHtml(it) {
+  return `
+  <details class="compare" open>
+    <summary>Compare pack sizes (for quoting customers)</summary>
+    <div class="chips" id="chips"></div>
+    <div class="tablewrap" id="comparetable"></div>
+  </details>`;
+}
+
+function refreshCompareTable(it) {
+  const chips = document.getElementById('chips');
+  const tbl = document.getElementById('comparetable');
+  if (!chips || !tbl || it.soldByCase) return;
+
+  chips.innerHTML = '';
+  for (const s of it.compareSizes) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.innerHTML = `pack of ${s} `;
+    const x = document.createElement('button');
+    x.textContent = '✕'; x.title = 'Remove';
+    x.onclick = () => { it.compareSizes = it.compareSizes.filter(v => v !== s); save(); renderResults(it); };
+    chip.appendChild(x);
+    chips.appendChild(chip);
+  }
+  const input = document.createElement('input');
+  input.type = 'number'; input.min = '1'; input.placeholder = 'size';
+  const add = document.createElement('button');
+  add.className = 'add'; add.textContent = '+ Add';
+  const doAdd = () => {
+    const v = parseFloat(input.value);
+    if (isFinite(v) && v > 0 && !it.compareSizes.includes(v)) {
+      it.compareSizes.push(v);
+      it.compareSizes.sort((a, b) => a - b);
+      save(); renderResults(it);
+    }
+    input.value = '';
+  };
+  add.onclick = doAdd;
+  input.onkeydown = (e) => { if (e.key === 'Enter') doAdd(); };
+  chips.appendChild(input); chips.appendChild(add);
+
+  const current = num(it.packSize);
+  const sizes = [...it.compareSizes].sort((a, b) => a - b);
+  if (!sizes.length) { tbl.innerHTML = '<div class="hint">Add a pack size above to compare.</div>'; return; }
+
+  const cols = sizes.map(s => ({ size: s, r: compute(it, s) }));
+  const valid = cols.filter(c => !c.r.error);
+  const bestPerCase = valid.length ? Math.min(...valid.map(c => c.r.perCase)) : null;
+  const pallets = num(it.casesPerPallet);
+
+  const th = cols.map(c =>
+    `<th class="${c.size === current ? 'cur' : ''}">Pack of ${c.size}${c.size === current ? ' ★' : ''}</th>`).join('');
+  const row = (label, get, best) => `<tr><td>${label}</td>${cols.map(c => {
+    if (c.r.error) return `<td class="${c.size === current ? 'cur' : ''}">—</td>`;
+    const v = get(c.r);
+    const isBest = best && v !== null && bestPerCase !== null && Math.abs(c.r.perCase - bestPerCase) < 1e-9;
+    return `<td class="${c.size === current ? 'cur' : ''}${isBest ? ' best' : ''}">${v}</td>`;
+  }).join('')}</tr>`;
+
+  tbl.innerHTML = `<table>
+    <thead><tr><th></th>${th}</tr></thead>
+    <tbody>
+      ${row('Packs per case', r => r.packs ?? '—', false)}
+      ${row('Cost per case', r => fmt(r.perCase), true)}
+      ${row('Cost per pack', r => fmt(r.perPack), false)}
+      ${row('Cost per unit', r => fmtUnit(r.perUnit), false)}
+      ${pallets ? row('Cost per pallet', r => fmt(r.perPallet), false) : ''}
+    </tbody>
+  </table>
+  <div class="hint" style="margin-top:6px">★ = currently selected pack size. Green = cheapest per case.</div>`;
+}
+
+// ---------- order total ----------
+function renderTotal() {
+  let rows = '';
+  let grand = 0;
+  let allGood = true;
+  for (const it of state.items) {
+    const r = compute(it);
+    const qty = orderedQty(it);
+    let flag = null;
+    if (r.error) flag = r.error;
+    else if (!qty.cases) flag = 'Enter “cases in order” on this item’s tab.';
+    if (flag) {
+      allGood = false;
+      rows += `<tr><td>${esc(it.name)}</td><td>—</td><td>—</td><td class="flag">⚠ ${esc(flag)}</td></tr>`;
+    } else {
+      const total = r.perCase * qty.cases;
+      grand += total;
+      rows += `<tr><td>${esc(it.name)}</td><td>${esc(qty.label)}</td><td>${fmt(r.perCase)}</td><td><strong>${fmt(total)}</strong></td></tr>`;
+    }
+  }
+  $panel.innerHTML = `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Item</th><th>Quantity</th><th>Prep cost / case</th><th>Item total</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="grand">
+      <span class="label">Order prep total${allGood ? '' : ' (complete items only)'}</span>
+      <span class="amount">${fmt(grand)}</span>
+    </div>`;
+}
+
+render();
+</script>
+</body>
+</html>
