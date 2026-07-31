@@ -1,7 +1,7 @@
 import Cocoa
 import WebKit
 
-let LIVE_URL = URL(string: "https://davidmss95.github.io/mss-packing-calculator/")!
+let LIVE_URL = URL(string: "https://mrgent26.github.io/mss-packing-calculator/")!
 
 class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     var window: NSWindow!
