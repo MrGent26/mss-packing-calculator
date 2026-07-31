@@ -1,0 +1,4 @@
+mac-app/MSSPackingCalculator
+mac-app/*.app/
+mac-app/AppIcon.iconset/
+mac-app/icon.svg.png
