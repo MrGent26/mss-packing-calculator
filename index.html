@@ -75,7 +75,8 @@
   .seg button { border: none; background: #fbfcfe; padding: 8px 14px; color: var(--muted); }
   .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
   .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
-  .row.nowrap { flex-wrap: nowrap; }
+  /* top-aligned so a field carrying a hint doesn't ride up out of line with the rest */
+  .row.nowrap { flex-wrap: nowrap; align-items: flex-start; }
   .row.nowrap .field { flex: 1; min-width: 0; }
   /* four cost fields would squash on a phone or a narrow app window */
   @media (max-width: 760px) { .row.nowrap { flex-wrap: wrap; } .row.nowrap .field { flex: 1 1 160px; } }
