@@ -115,6 +115,22 @@
   .boxopt-c { font-size: 19px; font-weight: 700; text-align: right; white-space: nowrap; }
   .boxopt-pc { font-size: 12px; font-weight: 400; color: var(--muted); }
   .extra { color: var(--warn-ink); background: var(--warn-bg); border-radius: 4px; padding: 0 5px; font-size: 12.5px; }
+
+  /* show-your-work */
+  details.work { margin-top: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: #fbfcfe; padding: 10px 14px; }
+  details.work summary { cursor: pointer; font-weight: 600; color: var(--ink); user-select: none;
+    list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+  details.work summary::before { content: "▸"; color: var(--accent); transition: transform .15s; }
+  details.work[open] summary::before { transform: rotate(90deg); }
+  .worktbl { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .worktbl td { border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: baseline; }
+  .worktbl .wl { font-weight: 600; white-space: nowrap; width: 1%; }
+  .worktbl .wc { color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 13px; text-align: left; }
+  .worktbl .wv { text-align: right; font-weight: 600; white-space: nowrap; }
+  .worktbl .wn td { border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12.5px; font-style: italic; padding-top: 0; }
+  .worktbl .wtot td { border-bottom: none; border-top: 2px solid var(--ink); font-size: 17px; padding-top: 8px; }
+  .worktbl .wtot .wv { color: var(--accent); font-weight: 800; }
+  .worksub { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 16px; }
   .incomplete { color: var(--muted); font-style: italic; padding: 14px 0 4px; }
 
   /* Comparison */
@@ -156,7 +172,7 @@
   <header>
     <div>
       <h1>MSS Packing Calculator</h1>
-      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.1</span></div>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.2</span></div>
     </div>
     <button class="clear" onclick="clearOrder()">Clear order</button>
   </header>
@@ -211,14 +227,76 @@ function num(v) {
   return (isFinite(n) && n >= 0) ? n : null;
 }
 
+// Counts of physical things — units, packs, cases, boxes, pallets — are whole.
+function numInt(v) {
+  const n = num(v);
+  return n === null ? null : Math.floor(n);
+}
+
+const INT_FIELDS = ['casePack', 'packSize', 'casesOrdered', 'casesPerPallet'];
+function normalizeInt(id, key) {
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  const n = num(it[key]);
+  if (n === null || Number.isInteger(n)) return;
+  it[key] = String(Math.floor(n));
+  save(); render();
+}
+
 // ---------- math ----------
 // A case pack that doesn't divide by the pack size is normal: leftover units
 // carry over into the next case's packs, so packs are counted across the whole
 // order, never rounded up case by case.
 function isUneven(it, packSizeOverride) {
-  const C = num(it.casePack);
-  const P = packSizeOverride !== undefined ? packSizeOverride : num(it.packSize);
+  const C = numInt(it.casePack);
+  const P = packSizeOverride !== undefined ? Math.floor(packSizeOverride) : numInt(it.packSize);
   return !it.soldByCase && C > 0 && P > 0 && (C % P !== 0) && Math.floor(C / P) >= 1;
+}
+
+// Every line of arithmetic behind the number, so it can be checked by eye.
+function showWork(o) {
+  const W = [], P = [];
+  const one = !o.N;                       // no order quantity yet → figures are for a single case
+  const cases = o.N || 1;
+  const plural = (n, w) => n === 1 ? `1 ${w}` : `${n} ${w === 'box' ? 'boxes' : w + 's'}`;
+
+  if (!o.soldByCase) {
+    W.push({ l: 'Units', c: `${plural(cases, 'case')} × ${o.casePack} per case`, v: plural(o.totalUnits, 'unit') });
+    W.push({
+      l: 'Packs', c: `${o.totalUnits} units ÷ ${o.packSize} per pack`, v: plural(o.totalPacks, 'pack'),
+      n: !o.uneven ? null : one
+        ? `${o.casePack} doesn’t divide by ${o.packSize} — enter “cases in order” for the real count, since leftover units carry into the next case`
+        : `${o.casePack} doesn’t divide by ${o.packSize}, so leftover units carry into the next case instead of making a partial pack in every case`
+          + (o.looseUnits ? ` (the very last pack is ${o.looseUnits} of ${o.packSize})` : ''),
+    });
+    W.push(o.mode === 'itemized'
+      ? { l: 'Bag + ASIN label', c: `${o.totalPacks} packs × (${fmt(o.bag)} + ${fmt(o.asin)})`, v: fmt(o.totalPacks * o.perPackRate) }
+      : { l: 'Flat fee', c: `${o.totalPacks} packs × ${fmt(o.perPackRate)}`, v: fmt(o.totalPacks * o.perPackRate) });
+  }
+  if (o.soldByCase || o.mode === 'itemized') {
+    W.push({ l: 'Packing labels', c: `${plural(o.boxes, 'box')} × ${fmt(o.boxRate)}`, v: fmt(o.boxes * o.boxRate),
+             n: o.boxNote || null });
+  }
+  if (o.additional) {
+    W.push({ l: 'Additional boxes', c: `${o.additional} × ${fmt(o.extraRate)}`, v: fmt(o.additional * o.extraRate),
+             n: o.extraRate ? null : 'no cost entered for these yet' });
+  }
+
+  const workTotal = { l: one ? 'Cost for one case' : 'Order prep total', v: fmt(o.cost) };
+
+  if (!one) P.push({ l: 'Per case', c: `${fmt(o.cost)} ÷ ${plural(cases, 'case')}`, v: fmt(o.perCase) });
+  if (!o.soldByCase) {
+    P.push({ l: 'Per pack', c: `${fmt(o.cost)} ÷ ${plural(o.totalPacks, 'pack')}`, v: fmt(o.perPack) });
+    P.push({ l: 'Per unit', c: `${fmt(o.cost)} ÷ ${plural(o.totalUnits, 'unit')}`, v: fmtUnit(o.perUnit),
+             n: 'rounded up to the nearest penny' });
+  }
+  // stated as one chain so the arithmetic ties out exactly — a rounded per-case
+  // figure multiplied by 90 would not match the pallet total shown
+  if (o.pallets) P.push({ l: 'Per pallet', c: one
+    ? `${fmt(o.perCase)} per case × ${o.pallets} cases per pallet`
+    : `${fmt(o.cost)} ÷ ${plural(cases, 'case')} × ${o.pallets} per pallet`, v: fmt(o.perPallet) });
+
+  return { work: W, workTotal, per: P };
 }
 
 function packRates(it) {
@@ -226,27 +304,35 @@ function packRates(it) {
     const bag = num(it.bagCost), label = num(it.labelCost), caseLabel = num(it.caseLabelCost);
     if (bag === null || label === null || caseLabel === null)
       return { error: 'Enter the bag, ASIN label, and packing label costs.' };
-    return { perPack: bag + label, boxCost: caseLabel };
+    return { perPack: bag + label, boxCost: caseLabel, bag, asin: label };
   }
   const rate = num(it.flatRate);
   if (rate === null) return { error: 'Enter the flat fee rate.' };
   return { perPack: rate, boxCost: 0 };
 }
 
+const boxes = (n) => `${n} box${n === 1 ? '' : 'es'}`;
+
 function compute(it, packSizeOverride) {
-  const packSize = packSizeOverride !== undefined ? packSizeOverride : num(it.packSize);
-  const casePack = num(it.casePack);
-  const pallets = num(it.casesPerPallet);
-  const N = num(it.casesOrdered);
+  const packSize = packSizeOverride !== undefined ? Math.floor(packSizeOverride) : numInt(it.packSize);
+  const casePack = numInt(it.casePack);
+  const pallets = numInt(it.casesPerPallet);
+  const N = numInt(it.casesOrdered);
 
   if (it.soldByCase) {
     const caseLabel = num(it.caseLabelCost);
     if (caseLabel === null) return { error: 'Enter the packing label cost.' };
-    return {
+    const boxCount = N || 1;
+    const cost = caseLabel * boxCount;
+    const out = {
       perCase: caseLabel, perPack: null, perUnit: null,
       perPallet: (pallets > 0) ? caseLabel * pallets : null,
       packsLabel: null, warning: null,
     };
+    return Object.assign(out, showWork({
+      soldByCase: true, N, boxes: boxCount, boxRate: caseLabel, additional: 0,
+      cost, perCase: caseLabel, perPallet: out.perPallet, pallets,
+    }));
   }
 
   if (!casePack || casePack <= 0) return { error: 'Enter the case pack (units per case).' };
@@ -256,27 +342,41 @@ function compute(it, packSizeOverride) {
 
   const packsMax = Math.ceil(casePack / packSize);
   const packsMin = Math.floor(casePack / packSize);
+  const base = { mode: it.mode, casePack, packSize, pallets, N,
+                 perPackRate: r.perPack, bag: r.bag, asin: r.asin, boxRate: r.boxCost };
 
-  // even split — every case is identical, no order context needed
+  // even split — every case is identical
   if (!isUneven(it, packSize)) {
-    const packs = packsMax;
-    const perCase = packs * r.perPack + r.boxCost;
-    return {
-      perCase, perPack: perCase / packs, perUnit: perCase / casePack,
+    const packsPerCase = packsMax;
+    const perCase = packsPerCase * r.perPack + r.boxCost;
+    const boxCount = N || 1;
+    const totalUnits = casePack * boxCount;
+    const totalPacks = packsPerCase * boxCount;
+    const cost = totalPacks * r.perPack + boxCount * r.boxCost;
+    const out = {
+      perCase, perPack: perCase / packsPerCase, perUnit: perCase / casePack,
       perPallet: (pallets > 0) ? perCase * pallets : null,
-      packsLabel: String(packs), warning: null,
+      packsLabel: String(packsPerCase), warning: null,
     };
+    return Object.assign(out, showWork(Object.assign({}, base, {
+      totalUnits, totalPacks, boxes: boxCount, additional: 0, cost,
+      perCase, perPack: out.perPack, perUnit: out.perUnit, perPallet: out.perPallet,
+    })));
   }
 
   // uneven — the order quantity decides how the leftovers land
   if (!N || N <= 0) {
     const perCase = packsMax * r.perPack + r.boxCost;
-    return {
+    const out = {
       perCase, perPack: perCase / packsMax, perUnit: perCase / casePack,
       perPallet: (pallets > 0) ? perCase * pallets : null,
       packsLabel: `${packsMin}–${packsMax}`, uneven: true, needsQty: true,
       warning: `${casePack} doesn’t divide into packs of ${packSize}. Enter “cases in order” — leftover units carry into the next case, so the real pack count depends on the whole order.`,
     };
+    return Object.assign(out, showWork(Object.assign({}, base, {
+      uneven: true, totalUnits: casePack, totalPacks: packsMax, boxes: 1, additional: 0,
+      cost: perCase, perCase, perPack: out.perPack, perUnit: out.perUnit, perPallet: out.perPallet,
+    })));
   }
 
   const totalUnits = casePack * N;
@@ -288,29 +388,38 @@ function compute(it, packSizeOverride) {
   if (it.repackOK === 'no') {
     // boxes are not re-mixed: each keeps only whole packs from its own case,
     // and the pooled leftovers need boxes of their own
-    const leftoverPacks = totalPacks - N * packsMin;
-    const additional = Math.max(0, Math.ceil(leftoverPacks / packsMax));
+    const leftoverPacks = Math.max(0, totalPacks - N * packsMin);
+    const additional = Math.ceil(leftoverPacks / packsMax);
     variants.push({
       key: 'strict', name: 'Leftovers boxed separately',
       boxes: N + additional, additional, unused: 0,
-      detail: `${N} original boxes of ${packsMin * packSize} + ${additional} additional box${additional === 1 ? '' : 'es'} holding the ${leftoverPacks} leftover pack${leftoverPacks === 1 ? '' : 's'}`,
+      detail: `${boxes(N)} of ${packsMin * packSize}`
+        + (additional ? ` + ${additional} additional box${additional === 1 ? '' : 'es'} for the ${leftoverPacks} leftover pack${leftoverPacks === 1 ? '' : 's'}` : ''),
+      note: additional ? `${additional} more box${additional === 1 ? '' : 'es'} than you received` : null,
     });
   } else {
     const fillBoxes = Math.ceil(totalPacks / packsMax);
+    const lastPacks = totalPacks - (fillBoxes - 1) * packsMax;
+    const fullBoxes = lastPacks === packsMax ? fillBoxes : fillBoxes - 1;
     const spare = Math.max(0, N - fillBoxes);
     variants.push({
       key: 'fill', name: `Fill to ${packsMax * packSize}`,
       boxes: fillBoxes, additional: Math.max(0, fillBoxes - N), unused: spare,
-      detail: `${fillBoxes - 1} box${fillBoxes - 1 === 1 ? '' : 'es'} of ${packsMax * packSize} + last box takes the remainder`
-        + (spare ? ` · ${spare} original box${spare === 1 ? '' : 'es'} left empty` : ''),
+      detail: (fullBoxes ? `${boxes(fullBoxes)} of ${packsMax * packSize}` : '')
+        + (fullBoxes && fullBoxes < fillBoxes ? ' + ' : '')
+        + (fullBoxes < fillBoxes ? `1 box of ${lastPacks * packSize}` : ''),
+      note: spare ? `${boxes(spare)} you received left empty` : null,
     });
     if (packsMin >= 1 && totalPacks >= N * packsMin && totalPacks <= N * packsMax) {
       const big = totalPacks - N * packsMin;
       const small = N - big;
+      const parts = [];
+      if (big) parts.push(`${boxes(big)} of ${packsMax * packSize}`);
+      if (small) parts.push(`${big ? small : boxes(small)} of ${packsMin * packSize}`);
       variants.push({
         key: 'spread', name: `Use all ${N} boxes`,
         boxes: N, additional: 0, unused: 0,
-        detail: `${big} box${big === 1 ? '' : 'es'} of ${packsMax * packSize} + ${small} of ${packsMin * packSize}`,
+        detail: parts.join(' + '), note: null,
       });
     }
   }
@@ -323,24 +432,28 @@ function compute(it, packSizeOverride) {
   });
 
   const chosen = variants.find(v => v.key === it.boxStrategy) || variants[0];
-
-  return {
+  const out = {
     perCase: chosen.perCase,
     perPack: chosen.cost / totalPacks,
     perUnit: chosen.perUnit,
     perPallet: (pallets > 0) ? chosen.perCase * pallets : null,
     packsLabel: `${packsMin}–${packsMax}`,
     uneven: true, totalUnits, totalPacks, looseUnits, packsMin, packsMax,
-    variants, chosen,
-    warning: null,
+    variants, chosen, warning: null,
   };
+  return Object.assign(out, showWork(Object.assign({}, base, {
+    uneven: true, totalUnits, totalPacks, looseUnits,
+    boxes: chosen.boxes, additional: chosen.additional, extraRate: extraBox,
+    boxNote: chosen.note, cost: chosen.cost,
+    perCase: out.perCase, perPack: out.perPack, perUnit: out.perUnit, perPallet: out.perPallet,
+  })));
 }
 
 // ordered quantity: total cases, with pallet breakdown derived from cases/pallet
 function orderedQty(it) {
-  const cases = num(it.casesOrdered);
+  const cases = numInt(it.casesOrdered);
   if (!cases || cases <= 0) return { cases: null };
-  const perPallet = num(it.casesPerPallet);
+  const perPallet = numInt(it.casesPerPallet);
   let label = cases + ' case' + (cases === 1 ? '' : 's');
   if (perPallet && perPallet > 0 && cases >= perPallet) {
     const plt = Math.floor(cases / perPallet);
@@ -527,8 +640,9 @@ function renderItemPanel(it) {
 }
 
 function numInput(it, key, placeholder, step, extra) {
+  const whole = INT_FIELDS.includes(key) ? ` onblur="normalizeInt(${it.id},'${key}')"` : '';
   return `<input type="number" min="0" step="${step || 'any'}" value="${esc(it[key])}" placeholder="${esc(placeholder || '')}"
-    oninput="set(${it.id},'${key}',this.value);renderResults(activeItem())" ${extra || ''}>`;
+    oninput="set(${it.id},'${key}',this.value);renderResults(activeItem())"${whole} ${extra || ''}>`;
 }
 
 // Enter in the pack-size box drops that size straight into the compare section
@@ -615,8 +729,30 @@ function renderResults(it) {
         <div class="note">${num(it.casesPerPallet)} cases</div></div>` : ''}
       ${orderTotal !== null ? `<div class="stat"><div class="k">This order</div><div class="v">${fmt(orderTotal)}</div><div class="note">${esc(qty.label)}</div></div>` : ''}
     </div>
-    ${variantsHtml(it, r)}`;
+    ${variantsHtml(it, r)}
+    ${workHtml(it, r)}`;
   refreshCompareTable(it);
+}
+
+// The full arithmetic, line by line.
+function workHtml(it, r) {
+  if (!r.work) return '';
+  const line = (x) => `<tr><td class="wl">${esc(x.l)}</td><td class="wc">${esc(x.c)}</td><td class="wv">${esc(x.v)}</td></tr>`
+    + (x.n ? `<tr class="wn"><td></td><td colspan="2">${esc(x.n)}</td></tr>` : '');
+  return `<details class="work"${it.showWork === false ? '' : ' open'}
+      ontoggle="set(${it.id},'showWork',this.open)">
+    <summary>Show the math — ${esc(it.name)}</summary>
+    <div class="tablewrap">
+      <table class="worktbl">
+        <tbody>
+          ${r.work.map(line).join('')}
+          <tr class="wtot"><td class="wl">${esc(r.workTotal.l)}</td><td></td><td class="wv">${esc(r.workTotal.v)}</td></tr>
+        </tbody>
+      </table>
+      ${r.per.length ? `<div class="worksub">Divided out</div>
+      <table class="worktbl"><tbody>${r.per.map(line).join('')}</tbody></table>` : ''}
+    </div>
+  </details>`;
 }
 
 // How the boxes actually get filled when the case pack is uneven.
