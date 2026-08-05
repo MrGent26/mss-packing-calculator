@@ -91,6 +91,30 @@
   .stat.primary .v { color: var(--accent); }
   .stat .note { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .warning { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid #eedb9a; border-radius: 8px; padding: 8px 12px; margin: 10px 0 0; font-size: 13.5px; }
+
+  /* uneven-cases question */
+  .ask { background: var(--warn-bg); border: 1px solid #eedb9a; border-radius: var(--radius); padding: 12px 14px; margin-bottom: 4px; }
+  .ask-q { font-weight: 700; color: var(--warn-ink); }
+  .ask-why { font-size: 13px; color: var(--warn-ink); opacity: .85; margin: 2px 0 10px; }
+  .ask-row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  .ask-note { font-size: 13px; color: var(--warn-ink); flex: 1; min-width: 180px; padding-bottom: 8px; }
+  .ask .field { min-width: 160px; }
+  .ask .field label { color: var(--warn-ink); }
+
+  /* boxing options */
+  .boxes { margin-top: 14px; }
+  .boxes-h { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .boxopt { display: flex; justify-content: space-between; align-items: center; gap: 14px;
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 6px; background: #f8fafc; }
+  .boxopt[onclick] { cursor: pointer; }
+  .boxopt.on { border-color: var(--accent); background: var(--accent-soft); }
+  .boxopt-l { display: flex; gap: 10px; align-items: center; }
+  .radio { color: var(--accent); font-size: 15px; }
+  .boxopt-n { font-size: 14px; }
+  .boxopt-d { font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+  .boxopt-c { font-size: 19px; font-weight: 700; text-align: right; white-space: nowrap; }
+  .boxopt-pc { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .extra { color: var(--warn-ink); background: var(--warn-bg); border-radius: 4px; padding: 0 5px; font-size: 12.5px; }
   .incomplete { color: var(--muted); font-style: italic; padding: 14px 0 4px; }
 
   /* Comparison */
@@ -132,7 +156,7 @@
   <header>
     <div>
       <h1>MSS Packing Calculator</h1>
-      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.0</span></div>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.1</span></div>
     </div>
     <button class="clear" onclick="clearOrder()">Clear order</button>
   </header>
@@ -159,6 +183,9 @@ function newItem(id) {
     flatRate: '',
     casesPerPallet: '',
     casesOrdered: '',
+    repackOK: 'yes',           // uneven cases: 'yes' = units may cross boxes
+    boxStrategy: 'fill',       // 'fill' | 'spread' | 'strict'
+    extraBoxCost: '',
     compareSizes: [],
   };
 }
@@ -185,49 +212,127 @@ function num(v) {
 }
 
 // ---------- math ----------
-function costPerCase(it, packSize) {
-  // returns {perCase, packs, warning} or {error}
-  const caseLabel = num(it.caseLabelCost);
-  const casePack = num(it.casePack);
+// A case pack that doesn't divide by the pack size is normal: leftover units
+// carry over into the next case's packs, so packs are counted across the whole
+// order, never rounded up case by case.
+function isUneven(it, packSizeOverride) {
+  const C = num(it.casePack);
+  const P = packSizeOverride !== undefined ? packSizeOverride : num(it.packSize);
+  return !it.soldByCase && C > 0 && P > 0 && (C % P !== 0) && Math.floor(C / P) >= 1;
+}
 
-  if (it.soldByCase) {
-    if (caseLabel === null) return { error: 'Enter the packing label cost.' };
-    return { perCase: caseLabel, packs: null, warning: null };
-  }
-
-  if (!casePack || casePack <= 0) return { error: 'Enter the case pack (units per case).' };
-  if (!packSize || packSize <= 0) return { error: 'Enter the pack size (units per bag).' };
-
-  const exact = casePack / packSize;
-  const packs = Math.ceil(exact);
-  const warning = Number.isInteger(exact) ? null :
-    `${casePack} units don’t divide evenly into packs of ${packSize} — counting ${packs} packs (${Math.floor(exact)} full + 1 partial).`;
-
+function packRates(it) {
   if (it.mode === 'itemized') {
-    const bag = num(it.bagCost), label = num(it.labelCost);
+    const bag = num(it.bagCost), label = num(it.labelCost), caseLabel = num(it.caseLabelCost);
     if (bag === null || label === null || caseLabel === null)
       return { error: 'Enter the bag, ASIN label, and packing label costs.' };
-    return { perCase: packs * (bag + label) + caseLabel, packs, warning };
+    return { perPack: bag + label, boxCost: caseLabel };
   }
-
   const rate = num(it.flatRate);
   if (rate === null) return { error: 'Enter the flat fee rate.' };
-  return { perCase: packs * rate, packs, warning };
+  return { perPack: rate, boxCost: 0 };
 }
 
 function compute(it, packSizeOverride) {
   const packSize = packSizeOverride !== undefined ? packSizeOverride : num(it.packSize);
-  const r = costPerCase(it, packSize);
-  if (r.error) return r;
   const casePack = num(it.casePack);
   const pallets = num(it.casesPerPallet);
+  const N = num(it.casesOrdered);
+
+  if (it.soldByCase) {
+    const caseLabel = num(it.caseLabelCost);
+    if (caseLabel === null) return { error: 'Enter the packing label cost.' };
+    return {
+      perCase: caseLabel, perPack: null, perUnit: null,
+      perPallet: (pallets > 0) ? caseLabel * pallets : null,
+      packsLabel: null, warning: null,
+    };
+  }
+
+  if (!casePack || casePack <= 0) return { error: 'Enter the case pack (units per case).' };
+  if (!packSize || packSize <= 0) return { error: 'Enter the pack size (units per bag).' };
+  const r = packRates(it);
+  if (r.error) return { error: r.error };
+
+  const packsMax = Math.ceil(casePack / packSize);
+  const packsMin = Math.floor(casePack / packSize);
+
+  // even split — every case is identical, no order context needed
+  if (!isUneven(it, packSize)) {
+    const packs = packsMax;
+    const perCase = packs * r.perPack + r.boxCost;
+    return {
+      perCase, perPack: perCase / packs, perUnit: perCase / casePack,
+      perPallet: (pallets > 0) ? perCase * pallets : null,
+      packsLabel: String(packs), warning: null,
+    };
+  }
+
+  // uneven — the order quantity decides how the leftovers land
+  if (!N || N <= 0) {
+    const perCase = packsMax * r.perPack + r.boxCost;
+    return {
+      perCase, perPack: perCase / packsMax, perUnit: perCase / casePack,
+      perPallet: (pallets > 0) ? perCase * pallets : null,
+      packsLabel: `${packsMin}–${packsMax}`, uneven: true, needsQty: true,
+      warning: `${casePack} doesn’t divide into packs of ${packSize}. Enter “cases in order” — leftover units carry into the next case, so the real pack count depends on the whole order.`,
+    };
+  }
+
+  const totalUnits = casePack * N;
+  const fullPacks = Math.floor(totalUnits / packSize);
+  const looseUnits = totalUnits - fullPacks * packSize;
+  const totalPacks = fullPacks + (looseUnits ? 1 : 0);
+
+  const variants = [];
+  if (it.repackOK === 'no') {
+    // boxes are not re-mixed: each keeps only whole packs from its own case,
+    // and the pooled leftovers need boxes of their own
+    const leftoverPacks = totalPacks - N * packsMin;
+    const additional = Math.max(0, Math.ceil(leftoverPacks / packsMax));
+    variants.push({
+      key: 'strict', name: 'Leftovers boxed separately',
+      boxes: N + additional, additional, unused: 0,
+      detail: `${N} original boxes of ${packsMin * packSize} + ${additional} additional box${additional === 1 ? '' : 'es'} holding the ${leftoverPacks} leftover pack${leftoverPacks === 1 ? '' : 's'}`,
+    });
+  } else {
+    const fillBoxes = Math.ceil(totalPacks / packsMax);
+    const spare = Math.max(0, N - fillBoxes);
+    variants.push({
+      key: 'fill', name: `Fill to ${packsMax * packSize}`,
+      boxes: fillBoxes, additional: Math.max(0, fillBoxes - N), unused: spare,
+      detail: `${fillBoxes - 1} box${fillBoxes - 1 === 1 ? '' : 'es'} of ${packsMax * packSize} + last box takes the remainder`
+        + (spare ? ` · ${spare} original box${spare === 1 ? '' : 'es'} left empty` : ''),
+    });
+    if (packsMin >= 1 && totalPacks >= N * packsMin && totalPacks <= N * packsMax) {
+      const big = totalPacks - N * packsMin;
+      const small = N - big;
+      variants.push({
+        key: 'spread', name: `Use all ${N} boxes`,
+        boxes: N, additional: 0, unused: 0,
+        detail: `${big} box${big === 1 ? '' : 'es'} of ${packsMax * packSize} + ${small} of ${packsMin * packSize}`,
+      });
+    }
+  }
+
+  const extraBox = num(it.extraBoxCost) || 0;
+  variants.forEach(v => {
+    v.cost = totalPacks * r.perPack + v.boxes * r.boxCost + v.additional * extraBox;
+    v.perCase = v.cost / N;
+    v.perUnit = v.cost / totalUnits;
+  });
+
+  const chosen = variants.find(v => v.key === it.boxStrategy) || variants[0];
+
   return {
-    perCase: r.perCase,
-    perPack: (!it.soldByCase && r.packs) ? r.perCase / r.packs : null,
-    perUnit: (!it.soldByCase && casePack) ? r.perCase / casePack : null,
-    perPallet: (pallets && pallets > 0) ? r.perCase * pallets : null,
-    packs: r.packs,
-    warning: r.warning,
+    perCase: chosen.perCase,
+    perPack: chosen.cost / totalPacks,
+    perUnit: chosen.perUnit,
+    perPallet: (pallets > 0) ? chosen.perCase * pallets : null,
+    packsLabel: `${packsMin}–${packsMax}`,
+    uneven: true, totalUnits, totalPacks, looseUnits, packsMin, packsMax,
+    variants, chosen,
+    warning: null,
   };
 }
 
@@ -416,7 +521,7 @@ function renderItemPanel(it) {
   const resetBtn = `<div style="display:flex;justify-content:flex-end;margin:-6px 0 10px">
     <button class="clear" onclick="resetItem(${it.id})" title="Reset this item’s numbers to defaults">↺ Reset item</button>
   </div>`;
-  $panel.innerHTML = resetBtn + inputs + '<hr class="divider"><div id="results"></div>' +
+  $panel.innerHTML = resetBtn + inputs + '<div id="unevenBox"></div><hr class="divider"><div id="results"></div>' +
     (!it.soldByCase ? compareHtml(it) : '');
   renderResults(it);
 }
@@ -441,9 +546,55 @@ function addPackToCompare(id, v) {
   renderResults(activeItem());
 }
 
+// The uneven-cases question. Rebuilt only when its shape actually changes, so
+// typing in the Additional Boxes field doesn't blow away its own focus.
+function renderUneven(it) {
+  const el = document.getElementById('unevenBox');
+  if (!el) return;
+  const on = isUneven(it);
+  const sig = on ? `${num(it.casePack)}|${num(it.packSize)}|${it.repackOK}` : 'off';
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  if (!on) { el.innerHTML = ''; return; }
+
+  const C = num(it.casePack), P = num(it.packSize);
+  const lo = Math.floor(C / P) * P, hi = Math.ceil(C / P) * P;
+  el.innerHTML = `
+    <div class="ask">
+      <div class="ask-q">⚠️ Uneven cases — will it repack correct?</div>
+      <div class="ask-why">${C} units don’t divide into packs of ${P}, so a box ends up holding ${lo} or ${hi} units, not ${C}.</div>
+      <div class="ask-row">
+        <div class="seg">
+          <button class="${it.repackOK === 'yes' ? 'on' : ''}" onclick="setRepack(${it.id},'yes')">Yes</button>
+          <button class="${it.repackOK === 'no' ? 'on' : ''}" onclick="setRepack(${it.id},'no')">No</button>
+        </div>
+        <div class="ask-note">${it.repackOK === 'yes'
+          ? `Units carry over between boxes — boxes hold ${lo} or ${hi}.`
+          : `Each box keeps only whole packs from its own case; leftovers get their own boxes.`}</div>
+        ${it.repackOK === 'no'
+          ? field('Additional Boxes <span class="muted" style="font-weight:400">($/box)</span>',
+              `<input type="number" min="0" step="0.01" value="${esc(it.extraBoxCost)}" placeholder="e.g. 1.00"
+                 oninput="set(${it.id},'extraBoxCost',this.value);renderResults(activeItem())">`)
+          : ''}
+      </div>
+    </div>`;
+}
+
+function setRepack(id, v) {
+  set(id, 'repackOK', v);
+  set(id, 'boxStrategy', v === 'no' ? 'strict' : 'fill');
+  renderResults(activeItem());
+}
+
+function pickStrategy(id, key) {
+  set(id, 'boxStrategy', key);
+  renderResults(activeItem());
+}
+
 function renderResults(it) {
   const el = document.getElementById('results');
   if (!el || !it) return;
+  renderUneven(it);
   const r = compute(it);
   if (r.error) {
     el.innerHTML = `<div class="incomplete">${esc(r.error)}</div>`;
@@ -454,16 +605,40 @@ function renderResults(it) {
   const orderTotal = qty.cases ? r.perCase * qty.cases : null;
   el.innerHTML = `
     ${r.warning ? `<div class="warning" style="margin-bottom:10px">⚠️ ${esc(r.warning)}</div>` : ''}
+    ${r.uneven && r.totalPacks ? `<div class="hint" style="margin-bottom:10px">${r.totalUnits} units across ${qty.cases} cases = <strong>${r.totalPacks} packs</strong>${r.looseUnits ? ` (last pack short by ${num(it.packSize) - r.looseUnits})` : ''} — leftovers carry between cases, so no partial pack per case.</div>` : ''}
     <div class="results">
       <div class="stat primary"><div class="k">Per case</div><div class="v">${fmt(r.perCase)}</div>
-        ${r.packs ? `<div class="note">${r.packs} pack${r.packs === 1 ? '' : 's'} per case</div>` : ''}</div>
+        ${r.packsLabel ? `<div class="note">${r.packsLabel} pack${r.packsLabel === '1' ? '' : 's'} per case</div>` : ''}</div>
       ${it.soldByCase ? '' : `<div class="stat"><div class="k">Per pack</div><div class="v">${fmt(r.perPack)}</div></div>
       <div class="stat"><div class="k">Per unit</div><div class="v">${fmtUnit(r.perUnit)}</div></div>`}
       ${r.perPallet !== null ? `<div class="stat"><div class="k">Per pallet</div><div class="v">${fmt(r.perPallet)}</div>
         <div class="note">${num(it.casesPerPallet)} cases</div></div>` : ''}
       ${orderTotal !== null ? `<div class="stat"><div class="k">This order</div><div class="v">${fmt(orderTotal)}</div><div class="note">${esc(qty.label)}</div></div>` : ''}
-    </div>`;
+    </div>
+    ${variantsHtml(it, r)}`;
   refreshCompareTable(it);
+}
+
+// How the boxes actually get filled when the case pack is uneven.
+function variantsHtml(it, r) {
+  if (!r.variants || !r.variants.length) return '';
+  const many = r.variants.length > 1;
+  return `<div class="boxes">
+    <div class="boxes-h">${many ? 'How do you want to box it?' : 'Boxing'}</div>
+    ${r.variants.map(v => `
+      <div class="boxopt${v === r.chosen ? ' on' : ''}"${many ? ` onclick="pickStrategy(${it.id},'${v.key}')"` : ''}>
+        <div class="boxopt-l">
+          ${many ? `<span class="radio">${v === r.chosen ? '●' : '○'}</span>` : ''}
+          <div>
+            <div class="boxopt-n">${esc(v.name)} — <strong>${v.boxes} box${v.boxes === 1 ? '' : 'es'}</strong>${v.additional ? ` <span class="extra">+${v.additional} additional</span>` : ''}</div>
+            <div class="boxopt-d">${esc(v.detail)}</div>
+          </div>
+        </div>
+        <div class="boxopt-c">${fmt(v.cost)}<div class="boxopt-pc">${fmt(v.perCase)}/case</div></div>
+      </div>`).join('')}
+    ${r.chosen.additional && !num(it.extraBoxCost)
+      ? `<div class="hint" style="margin-top:6px">Enter an <strong>Additional Boxes</strong> cost above to include the ${r.chosen.additional} extra box${r.chosen.additional === 1 ? '' : 'es'} in the total.</div>` : ''}
+  </div>`;
 }
 
 // ---------- comparison ----------
@@ -530,7 +705,7 @@ function refreshCompareTable(it) {
   tbl.innerHTML = `<table>
     <thead><tr><th></th>${th}</tr></thead>
     <tbody>
-      ${row('Packs per case', r => r.packs ?? '—', false)}
+      ${row('Packs per case', r => r.packsLabel ?? '—', false)}
       ${row('Cost per case', r => fmt(r.perCase), true)}
       ${row('Cost per pack', r => fmt(r.perPack), false)}
       ${row('Cost per unit', r => fmtUnit(r.perUnit), false)}
