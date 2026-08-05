@@ -77,6 +77,8 @@
   .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
   .row.nowrap { flex-wrap: nowrap; }
   .row.nowrap .field { flex: 1; min-width: 0; }
+  /* four cost fields would squash on a phone or a narrow app window */
+  @media (max-width: 760px) { .row.nowrap { flex-wrap: wrap; } .row.nowrap .field { flex: 1 1 160px; } }
   .divider { border: none; border-top: 1px solid var(--line); margin: 18px 0; }
   .hint { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
   .flatwrap { display: flex; gap: 8px; align-items: center; }
@@ -174,7 +176,7 @@
   <header>
     <div>
       <h1>MSS Packing Calculator</h1>
-      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.2</span></div>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.3</span></div>
     </div>
     <button class="clear" onclick="clearOrder()">Clear order</button>
   </header>
@@ -197,6 +199,7 @@ function newItem(id) {
     mode: 'itemized',          // 'itemized' | 'flat'
     bagCost: '0.25',
     labelCost: '0.25',
+    setStickerCost: '0.15',
     caseLabelCost: '0.25',
     flatRate: '',
     casesPerPallet: '',
@@ -215,7 +218,12 @@ function load() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      if (s && Array.isArray(s.items) && s.items.length) return s;
+      if (s && Array.isArray(s.items) && s.items.length) {
+        // an order saved before a field existed keeps its own values but picks
+        // up defaults for anything new, so old saved orders never break
+        s.items = s.items.map(it => Object.assign(newItem(it.id), it));
+        return s;
+      }
     }
   } catch (e) { /* fall through to fresh state */ }
   return { items: [newItem(1)], active: 1, nextId: 2 };
@@ -272,7 +280,10 @@ function showWork(o) {
           + (o.looseUnits ? ` (the very last pack is ${o.looseUnits} of ${o.packSize})` : ''),
     });
     W.push(o.mode === 'itemized'
-      ? { l: 'Bag + ASIN label', c: `${o.totalPacks} packs × (${fmt(o.bag)} + ${fmt(o.asin)})`, v: fmt(o.totalPacks * o.perPackRate) }
+      ? { l: o.setApplies ? 'Bag + ASIN + set sticker' : 'Bag + ASIN label',
+          c: `${o.totalPacks} packs × (${fmt(o.bag)} + ${fmt(o.asin)}${o.setApplies ? ` + ${fmt(o.set)}` : ''})`,
+          v: fmt(o.totalPacks * o.perPackRate),
+          n: o.setApplies ? null : `no set sticker — packs of 1 aren’t a set` }
       : { l: 'Flat fee', c: `${o.totalPacks} packs × ${fmt(o.perPackRate)}`, v: fmt(o.totalPacks * o.perPackRate) });
   }
   if (o.soldByCase || o.mode === 'itemized') {
@@ -301,12 +312,16 @@ function showWork(o) {
   return { work: W, workTotal, per: P };
 }
 
-function packRates(it) {
+function packRates(it, packSize) {
   if (it.mode === 'itemized') {
     const bag = num(it.bagCost), label = num(it.labelCost), caseLabel = num(it.caseLabelCost);
-    if (bag === null || label === null || caseLabel === null)
-      return { error: 'Enter the bag, ASIN label, and packing label costs.' };
-    return { perPack: bag + label, boxCost: caseLabel, bag, asin: label };
+    const set = num(it.setStickerCost);
+    if (bag === null || label === null || caseLabel === null || set === null)
+      return { error: 'Enter the bag, ASIN label, set sticker, and packing label costs.' };
+    // a "sold as a set" sticker only exists on a multipack — a single unit isn't a set
+    const setApplies = packSize > 1;
+    return { perPack: bag + label + (setApplies ? set : 0), boxCost: caseLabel,
+             bag, asin: label, set, setApplies };
   }
   const rate = num(it.flatRate);
   if (rate === null) return { error: 'Enter the flat fee rate.' };
@@ -339,13 +354,14 @@ function compute(it, packSizeOverride) {
 
   if (!casePack || casePack <= 0) return { error: 'Enter the case pack (units per case).' };
   if (!packSize || packSize <= 0) return { error: 'Enter the pack size (units per bag).' };
-  const r = packRates(it);
+  const r = packRates(it, packSize);
   if (r.error) return { error: r.error };
 
   const packsMax = Math.ceil(casePack / packSize);
   const packsMin = Math.floor(casePack / packSize);
   const base = { mode: it.mode, casePack, packSize, pallets, N,
-                 perPackRate: r.perPack, bag: r.bag, asin: r.asin, boxRate: r.boxCost };
+                 perPackRate: r.perPack, bag: r.bag, asin: r.asin,
+                 set: r.set, setApplies: r.setApplies, boxRate: r.boxCost };
 
   // even split — every case is identical
   if (!isUneven(it, packSize)) {
@@ -618,6 +634,8 @@ function renderItemPanel(it) {
       <div class="row nowrap">
         ${field('Bag Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'bagCost', '0.25', '0.01'))}
         ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.25', '0.01'))}
+        ${field('Set Sticker Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'setStickerCost', '0.15', '0.01'),
+            '“Sold as a Set” — multipacks only')}
         ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.25', '0.01'))}
       </div>`;
     } else {
