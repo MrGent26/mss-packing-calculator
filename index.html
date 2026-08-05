@@ -122,11 +122,13 @@
     list-style: none; display: inline-flex; align-items: center; gap: 6px; }
   details.work summary::before { content: "▸"; color: var(--accent); transition: transform .15s; }
   details.work[open] summary::before { transform: rotate(90deg); }
-  .worktbl { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  .worktbl td { border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: baseline; }
+  .worktbl { width: 100%; border-collapse: collapse; margin-top: 8px; table-layout: auto; }
+  /* the shared th/td rule sets nowrap, which would force this table wider than
+     the panel and push the money column out of sight — only the short cells keep it */
+  .worktbl td { border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: baseline; white-space: normal; }
   .worktbl .wl { font-weight: 600; white-space: nowrap; width: 1%; }
   .worktbl .wc { color: var(--muted); font-family: ui-monospace, Menlo, monospace; font-size: 13px; text-align: left; }
-  .worktbl .wv { text-align: right; font-weight: 600; white-space: nowrap; }
+  .worktbl .wv { text-align: right; font-weight: 600; white-space: nowrap; width: 1%; }
   .worktbl .wn td { border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12.5px; font-style: italic; padding-top: 0; }
   .worktbl .wtot td { border-bottom: none; border-top: 2px solid var(--ink); font-size: 17px; padding-top: 8px; }
   .worktbl .wtot .wv { color: var(--accent); font-weight: 800; }
