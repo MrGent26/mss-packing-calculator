@@ -30,7 +30,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         NSApp.activate(ignoringOtherApps: true)
 
         buildMenu()
-        webView.load(URLRequest(url: LIVE_URL, cachePolicy: .reloadRevalidatingCacheData))
+        webView.load(URLRequest(url: LIVE_URL, cachePolicy: .reloadIgnoringLocalCacheData))
     }
 
     // offline fallback: load the copy bundled inside the app
@@ -46,6 +46,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         loadBundledCopy()
+    }
+
+    // a served error page (e.g. GitHub's 404) is a successful navigation, so didFail
+    // never fires — catch bad HTTP statuses here and use the bundled copy instead
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
+                 decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if navigationResponse.isForMainFrame,
+           let http = navigationResponse.response as? HTTPURLResponse,
+           http.statusCode >= 400 {
+            decisionHandler(.cancel)
+            loadBundledCopy()
+            return
+        }
+        decisionHandler(.allow)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
