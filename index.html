@@ -177,7 +177,7 @@
   <header>
     <div>
       <h1>MSS Packing Calculator</h1>
-      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.3</span></div>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.4</span></div>
     </div>
     <button class="clear" onclick="clearOrder()">Clear order</button>
   </header>
@@ -200,6 +200,7 @@ function newItem(id) {
     mode: 'itemized',          // 'itemized' | 'flat'
     bagCost: '0.25',
     labelCost: '0.25',
+    needsSetSticker: true,     // does this product get a “Sold as a Set” sticker
     setStickerCost: '0.15',
     caseLabelCost: '0.25',
     flatRate: '',
@@ -207,6 +208,7 @@ function newItem(id) {
     casesOrdered: '',
     repackOK: 'yes',           // uneven cases: 'yes' = units may cross boxes
     boxStrategy: 'fill',       // 'fill' | 'spread' | 'strict'
+    reboxCount: '',            // cases that arrived open and need a fresh box
     extraBoxCost: '',
     compareSizes: [],
   };
@@ -244,7 +246,7 @@ function numInt(v) {
   return n === null ? null : Math.floor(n);
 }
 
-const INT_FIELDS = ['casePack', 'packSize', 'casesOrdered', 'casesPerPallet'];
+const INT_FIELDS = ['casePack', 'packSize', 'casesOrdered', 'casesPerPallet', 'reboxCount'];
 function normalizeInt(id, key) {
   const it = state.items.find(i => i.id === id);
   if (!it) return;
@@ -284,7 +286,7 @@ function showWork(o) {
       ? { l: o.setApplies ? 'Bag + ASIN + set sticker' : 'Bag + ASIN label',
           c: `${o.totalPacks} packs × (${fmt(o.bag)} + ${fmt(o.asin)}${o.setApplies ? ` + ${fmt(o.set)}` : ''})`,
           v: fmt(o.totalPacks * o.perPackRate),
-          n: o.setApplies ? null : `no set sticker — packs of 1 aren’t a set` }
+          n: o.setApplies ? null : 'set sticker turned off for this product' }
       : { l: 'Flat fee', c: `${o.totalPacks} packs × ${fmt(o.perPackRate)}`, v: fmt(o.totalPacks * o.perPackRate) });
   }
   if (o.soldByCase || o.mode === 'itemized') {
@@ -292,8 +294,12 @@ function showWork(o) {
              n: o.boxNote || null });
   }
   if (o.additional) {
-    W.push({ l: 'Additional boxes', c: `${o.additional} × ${fmt(o.extraRate)}`, v: fmt(o.additional * o.extraRate),
-             n: o.extraRate ? null : 'no cost entered for these yet' });
+    W.push({ l: 'Boxes for leftovers', c: `${o.additional} × ${fmt(o.extraRate)}`, v: fmt(o.additional * o.extraRate),
+             n: o.extraRate ? null : 'no cost per box entered yet' });
+  }
+  if (o.rebox) {
+    W.push({ l: 'Additional boxes', c: `${plural(o.rebox, 'box')} × ${fmt(o.extraRate)}`, v: fmt(o.rebox * o.extraRate),
+             n: o.extraRate ? 'reboxing cases that arrived open' : 'no cost per box entered yet' });
   }
 
   const workTotal = { l: one ? 'Cost for one case' : 'Order prep total', v: fmt(o.cost) };
@@ -319,8 +325,9 @@ function packRates(it, packSize) {
     const set = num(it.setStickerCost);
     if (bag === null || label === null || caseLabel === null || set === null)
       return { error: 'Enter the bag, ASIN label, set sticker, and packing label costs.' };
-    // a "sold as a set" sticker only exists on a multipack — a single unit isn't a set
-    const setApplies = packSize > 1;
+    // whether the product needs a "Sold as a Set" sticker is David's call per
+    // product — a manufacturer twin pack can need one at pack size 1
+    const setApplies = it.needsSetSticker !== false;
     return { perPack: bag + label + (setApplies ? set : 0), boxCost: caseLabel,
              bag, asin: label, set, setApplies };
   }
@@ -336,20 +343,24 @@ function compute(it, packSizeOverride) {
   const casePack = numInt(it.casePack);
   const pallets = numInt(it.casesPerPallet);
   const N = numInt(it.casesOrdered);
+  const extraRate = num(it.extraBoxCost) || 0;
+  const rebox = numInt(it.reboxCount) || 0;
+  const reboxCost = rebox * extraRate;
 
   if (it.soldByCase) {
     const caseLabel = num(it.caseLabelCost);
     if (caseLabel === null) return { error: 'Enter the packing label cost.' };
     const boxCount = N || 1;
-    const cost = caseLabel * boxCount;
+    const cost = caseLabel * boxCount + reboxCost;
+    const perCase = cost / boxCount;
     const out = {
-      perCase: caseLabel, perPack: null, perUnit: null,
-      perPallet: (pallets > 0) ? caseLabel * pallets : null,
+      perCase, perPack: null, perUnit: null,
+      perPallet: (pallets > 0) ? perCase * pallets : null,
       packsLabel: null, warning: null,
     };
     return Object.assign(out, showWork({
       soldByCase: true, N, boxes: boxCount, boxRate: caseLabel, additional: 0,
-      cost, perCase: caseLabel, perPallet: out.perPallet, pallets,
+      rebox, extraRate, cost, perCase, perPallet: out.perPallet, pallets,
     }));
   }
 
@@ -367,25 +378,25 @@ function compute(it, packSizeOverride) {
   // even split — every case is identical
   if (!isUneven(it, packSize)) {
     const packsPerCase = packsMax;
-    const perCase = packsPerCase * r.perPack + r.boxCost;
     const boxCount = N || 1;
     const totalUnits = casePack * boxCount;
     const totalPacks = packsPerCase * boxCount;
-    const cost = totalPacks * r.perPack + boxCount * r.boxCost;
+    const cost = totalPacks * r.perPack + boxCount * r.boxCost + reboxCost;
+    const perCase = cost / boxCount;
     const out = {
-      perCase, perPack: perCase / packsPerCase, perUnit: perCase / casePack,
+      perCase, perPack: cost / totalPacks, perUnit: cost / totalUnits,
       perPallet: (pallets > 0) ? perCase * pallets : null,
       packsLabel: String(packsPerCase), warning: null,
     };
     return Object.assign(out, showWork(Object.assign({}, base, {
-      totalUnits, totalPacks, boxes: boxCount, additional: 0, cost,
+      totalUnits, totalPacks, boxes: boxCount, additional: 0, rebox, extraRate, cost,
       perCase, perPack: out.perPack, perUnit: out.perUnit, perPallet: out.perPallet,
     })));
   }
 
   // uneven — the order quantity decides how the leftovers land
   if (!N || N <= 0) {
-    const perCase = packsMax * r.perPack + r.boxCost;
+    const perCase = packsMax * r.perPack + r.boxCost + reboxCost;
     const out = {
       perCase, perPack: perCase / packsMax, perUnit: perCase / casePack,
       perPallet: (pallets > 0) ? perCase * pallets : null,
@@ -394,7 +405,7 @@ function compute(it, packSizeOverride) {
     };
     return Object.assign(out, showWork(Object.assign({}, base, {
       uneven: true, totalUnits: casePack, totalPacks: packsMax, boxes: 1, additional: 0,
-      cost: perCase, perCase, perPack: out.perPack, perUnit: out.perUnit, perPallet: out.perPallet,
+      rebox, extraRate, cost: perCase, perCase, perPack: out.perPack, perUnit: out.perUnit, perPallet: out.perPallet,
     })));
   }
 
@@ -443,9 +454,8 @@ function compute(it, packSizeOverride) {
     }
   }
 
-  const extraBox = num(it.extraBoxCost) || 0;
   variants.forEach(v => {
-    v.cost = totalPacks * r.perPack + v.boxes * r.boxCost + v.additional * extraBox;
+    v.cost = totalPacks * r.perPack + v.boxes * r.boxCost + v.additional * extraRate + reboxCost;
     v.perCase = v.cost / N;
     v.perUnit = v.cost / totalUnits;
   });
@@ -462,7 +472,7 @@ function compute(it, packSizeOverride) {
   };
   return Object.assign(out, showWork(Object.assign({}, base, {
     uneven: true, totalUnits, totalPacks, looseUnits,
-    boxes: chosen.boxes, additional: chosen.additional, extraRate: extraBox,
+    boxes: chosen.boxes, additional: chosen.additional, rebox, extraRate,
     boxNote: chosen.note, cost: chosen.cost,
     perCase: out.perCase, perPack: out.perPack, perUnit: out.perUnit, perPallet: out.perPallet,
   })));
@@ -635,8 +645,15 @@ function renderItemPanel(it) {
       <div class="row nowrap">
         ${field('Bag Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'bagCost', '0.25', '0.01'))}
         ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.25', '0.01'))}
-        ${field('Set Sticker Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'setStickerCost', '0.15', '0.01'),
-            '“Sold as a Set” — multipacks only')}
+        ${field('Set Sticker <span class="muted" style="font-weight:400">($/pack)</span>', `
+          <div class="flatwrap">
+            <div class="seg">
+              <button class="${it.needsSetSticker !== false ? 'on' : ''}" onclick="setNeedsSet(${it.id},true)">Yes</button>
+              <button class="${it.needsSetSticker === false ? 'on' : ''}" onclick="setNeedsSet(${it.id},false)">No</button>
+            </div>
+            ${it.needsSetSticker !== false ? numInput(it, 'setStickerCost', '0.15', '0.01') : ''}
+          </div>`,
+          it.needsSetSticker !== false ? '“Sold as a Set” sticker' : 'not charged on this product')}
         ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.25', '0.01'))}
       </div>`;
     } else {
@@ -651,6 +668,13 @@ function renderItemPanel(it) {
       ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.25', '0.01'))}
     </div>`;
   }
+
+  inputs += `<div class="row nowrap">
+    ${field('Additional Boxes <span class="muted" style="font-weight:400">(cases that came open)</span>',
+        numInput(it, 'reboxCount', 'e.g. 3', '1'), 'a case that arrives open has to be reboxed')}
+    ${field('Cost per Box <span class="muted" style="font-weight:400">($/box)</span>',
+        numInput(it, 'extraBoxCost', 'e.g. 1.00', '0.01'))}
+  </div>`;
 
   const resetBtn = `<div style="display:flex;justify-content:flex-end;margin:-6px 0 10px">
     <button class="clear" onclick="resetItem(${it.id})" title="Reset this item’s numbers to defaults">↺ Reset item</button>
@@ -706,14 +730,12 @@ function renderUneven(it) {
         <div class="ask-note">${it.repackOK === 'yes'
           ? `Units carry over between boxes — boxes hold ${lo} or ${hi}.`
           : `Each box keeps only whole packs from its own case; leftovers get their own boxes.`}</div>
-        ${it.repackOK === 'no'
-          ? field('Additional Boxes <span class="muted" style="font-weight:400">($/box)</span>',
-              `<input type="number" min="0" step="0.01" value="${esc(it.extraBoxCost)}" placeholder="e.g. 1.00"
-                 oninput="set(${it.id},'extraBoxCost',this.value);renderResults(activeItem())">`)
-          : ''}
+
       </div>
     </div>`;
 }
+
+function setNeedsSet(id, v) { set(id, 'needsSetSticker', v); render(); }
 
 function setRepack(id, v) {
   set(id, 'repackOK', v);
@@ -794,7 +816,7 @@ function variantsHtml(it, r) {
         <div class="boxopt-c">${fmt(v.cost)}<div class="boxopt-pc">${fmt(v.perCase)}/case</div></div>
       </div>`).join('')}
     ${r.chosen.additional && !num(it.extraBoxCost)
-      ? `<div class="hint" style="margin-top:6px">Enter an <strong>Additional Boxes</strong> cost above to include the ${r.chosen.additional} extra box${r.chosen.additional === 1 ? '' : 'es'} in the total.</div>` : ''}
+      ? `<div class="hint" style="margin-top:6px">Enter a <strong>Cost per Box</strong> above to include the ${r.chosen.additional} extra box${r.chosen.additional === 1 ? '' : 'es'} in the total.</div>` : ''}
   </div>`;
 }
 
