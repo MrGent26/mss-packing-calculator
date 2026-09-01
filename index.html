@@ -82,7 +82,14 @@
   @media (max-width: 760px) { .row.nowrap { flex-wrap: wrap; } .row.nowrap .field { flex: 1 1 160px; } }
   .divider { border: none; border-top: 1px solid var(--line); margin: 18px 0; }
   .hint { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
-  .flatwrap { display: flex; gap: 8px; align-items: center; }
+  .flatwrap { display: flex; gap: 10px; align-items: center; }
+  .sw { position: relative; flex: none; width: 51px; height: 31px; padding: 0; border: none;
+        border-radius: 999px; background: #d9dde3; transition: background .18s ease; }
+  .sw.on { background: #34c759; }
+  .sw span { position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+             background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28); transition: transform .18s ease; }
+  .sw.on span { transform: translateX(20px); }
+  .sw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .flatwrap input { width: 110px; }
 
   /* Results */
@@ -177,7 +184,7 @@
   <header>
     <div>
       <h1>MSS Packing Calculator</h1>
-      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.4</span></div>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.5</span></div>
     </div>
     <button class="clear" onclick="clearOrder()">Clear order</button>
   </header>
@@ -299,7 +306,7 @@ function showWork(o) {
   }
   if (o.rebox) {
     W.push({ l: 'Additional boxes', c: `${plural(o.rebox, 'box')} × ${fmt(o.extraRate)}`, v: fmt(o.rebox * o.extraRate),
-             n: o.extraRate ? 'reboxing cases that arrived open' : 'no cost per box entered yet' });
+             n: o.extraRate ? null : 'no cost per box entered yet' });
   }
 
   const workTotal = { l: one ? 'Cost for one case' : 'Order prep total', v: fmt(o.cost) };
@@ -647,10 +654,10 @@ function renderItemPanel(it) {
         ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.25', '0.01'))}
         ${field('Set Sticker <span class="muted" style="font-weight:400">($/pack)</span>', `
           <div class="flatwrap">
-            <div class="seg">
-              <button class="${it.needsSetSticker !== false ? 'on' : ''}" onclick="setNeedsSet(${it.id},true)">Yes</button>
-              <button class="${it.needsSetSticker === false ? 'on' : ''}" onclick="setNeedsSet(${it.id},false)">No</button>
-            </div>
+            <button class="sw${it.needsSetSticker !== false ? ' on' : ''}" role="switch"
+                    aria-checked="${it.needsSetSticker !== false}" aria-label="Set sticker"
+                    title="${it.needsSetSticker !== false ? 'On — tap to turn off' : 'Off — tap to turn on'}"
+                    onclick="setNeedsSet(${it.id}, ${it.needsSetSticker === false})"><span></span></button>
             ${it.needsSetSticker !== false ? numInput(it, 'setStickerCost', '0.15', '0.01') : ''}
           </div>`,
           it.needsSetSticker !== false ? '“Sold as a Set” sticker' : 'not charged on this product')}
@@ -670,8 +677,8 @@ function renderItemPanel(it) {
   }
 
   inputs += `<div class="row nowrap">
-    ${field('Additional Boxes <span class="muted" style="font-weight:400">(cases that came open)</span>',
-        numInput(it, 'reboxCount', 'e.g. 3', '1'), 'a case that arrives open has to be reboxed')}
+    ${field('Additional Boxes <span class="muted" style="font-weight:400">(for odd repacks that require more boxes)</span>',
+        numInput(it, 'reboxCount', 'e.g. 3', '1'), 'e.g. a case that arrives open and has to be reboxed')}
     ${field('Cost per Box <span class="muted" style="font-weight:400">($/box)</span>',
         numInput(it, 'extraBoxCost', 'e.g. 1.00', '0.01'))}
   </div>`;
