@@ -3,7 +3,7 @@ import WebKit
 
 let LIVE_URL = URL(string: "https://mrgent26.github.io/mss-packing-calculator/")!
 
-class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
     var window: NSWindow!
     var webView: WKWebView!
 
@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
         webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
+        webView.uiDelegate = self
 
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 940, height: 780),
@@ -60,6 +61,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             return
         }
         decisionHandler(.allow)
+    }
+
+    // JavaScript dialogs. Without these WebKit silently answers confirm() with
+    // false, so every button guarded by one (Reset item, Clear order, delete a
+    // tab) looks dead — it runs, is refused, and returns.
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "OK")
+        guard let window = window else { completionHandler(); return }
+        alert.beginSheetModal(for: window) { _ in completionHandler() }
+    }
+
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        guard let window = window else { completionHandler(false); return }
+        alert.beginSheetModal(for: window) { r in completionHandler(r == .alertFirstButtonReturn) }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
