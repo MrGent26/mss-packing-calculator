@@ -1,0 +1,14 @@
+{
+  "about": "half-written / damaged saved data: must lock saving and change nothing",
+  "storage": {
+    "prepCostCalcV2": "{\"schema\":2,\"orders\":[{\"id\":1,\"name\":\"Brighton\",\"items\":[{\"id\":1,\"na",
+    "prepCostCalcV1": "{\"items\": [{\"id\": 1, \"name\": \"Item 1\", \"soldByCase\": false, \"casePack\": \"16\", \"packSize\": \"0\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}], \"active\": 1, \"nextId\": 2}"
+  },
+  "expect": {
+    "safeMode": true,
+    "untouched": [
+      "prepCostCalcV2",
+      "prepCostCalcV1"
+    ]
+  }
+}

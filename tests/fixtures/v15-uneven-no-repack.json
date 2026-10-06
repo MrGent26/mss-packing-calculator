@@ -1,0 +1,27 @@
+{
+  "about": "uneven 9-in-2s, will not repack, extra boxes and reboxing: the hardest money path",
+  "storage": {
+    "prepCostCalcV1": "{\"items\": [{\"id\": 1, \"name\": \"Item 1\", \"soldByCase\": false, \"casePack\": \"9\", \"packSize\": \"2\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"24\", \"repackOK\": \"no\", \"boxStrategy\": \"strict\", \"reboxCount\": \"3\", \"extraBoxCost\": \"1.50\", \"compareSizes\": []}], \"active\": 1, \"nextId\": 2}"
+  },
+  "expect": {
+    "safeMode": false,
+    "untouched": [
+      "prepCostCalcV1"
+    ],
+    "orders": [
+      {
+        "name": "Order 1",
+        "items": [
+          {
+            "name": "Tab 1",
+            "repackOK": "no",
+            "boxStrategy": "strict",
+            "reboxCount": "3",
+            "extraBoxCost": "1.50"
+          }
+        ],
+        "grand": 85.95
+      }
+    ]
+  }
+}

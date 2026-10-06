@@ -30,7 +30,8 @@
     font-size: 15px;
     line-height: 1.45;
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 24px 16px 60px; }
+  .shell { display: flex; gap: 20px; align-items: flex-start; max-width: 1160px; margin: 0 auto; padding: 24px 16px 60px; }
+  .wrap { flex: 1; min-width: 0; max-width: 880px; }
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   header h1 { font-size: 22px; margin: 0; }
   header .sub { color: var(--muted); font-size: 13px; }
@@ -75,21 +76,19 @@
   .seg button { border: none; background: #fbfcfe; padding: 8px 14px; color: var(--muted); }
   .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
   .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
-  /* top-aligned so a field carrying a hint doesn't ride up out of line with the rest */
-  .row.nowrap { flex-wrap: nowrap; align-items: flex-start; }
-  .row.nowrap .field { flex: 1; min-width: 0; }
-  /* four cost fields would squash on a phone or a narrow app window */
-  @media (max-width: 760px) { .row.nowrap { flex-wrap: wrap; } .row.nowrap .field { flex: 1 1 160px; } }
+  /* Fields in one line share three rows (label, box, hint) through a subgrid, so
+     every box lines up even when one label wraps onto two lines in a narrow window. */
+  .row.nowrap { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
+                grid-template-rows: auto auto auto; gap: 0 18px; }
+  .row.nowrap > .field { display: grid; grid-row: span 3; grid-template-rows: subgrid; min-width: 0; }
+  /* on a phone or a narrow app window they wrap, still lined up line by line */
+  @media (max-width: 760px) {
+    .row.nowrap { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .row.nowrap > .field { margin-bottom: 14px; }
+  }
   .divider { border: none; border-top: 1px solid var(--line); margin: 18px 0; }
   .hint { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
   .flatwrap { display: flex; gap: 10px; align-items: center; }
-  .sw { position: relative; flex: none; width: 51px; height: 31px; padding: 0; border: none;
-        border-radius: 999px; background: #d9dde3; transition: background .18s ease; }
-  .sw.on { background: #34c759; }
-  .sw span { position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
-             background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28); transition: transform .18s ease; }
-  .sw.on span { transform: translateX(20px); }
-  .sw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .flatwrap input { width: 110px; }
 
   /* Results */
@@ -176,70 +175,294 @@
   .clear { border: 1px solid var(--line); background: var(--panel); color: var(--danger); border-radius: 8px; padding: 7px 12px; font-size: 13px; }
   .clear:hover { background: #fdf1ef; }
   .muted { color: var(--muted); }
-  @media print { .tabs, .clear, .chips, header .sub { display: none; } .panel { border: none; } }
+  /* order list */
+  .side { width: 230px; flex: none; position: sticky; top: 16px; max-height: calc(100vh - 32px);
+          display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .side-h { padding: 12px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .side-title { font-weight: 700; }
+  .side-toggle { display: none; border: none; background: none; font-weight: 700; text-align: left; padding: 0; color: var(--ink); }
+  .newbtn { border: none; background: var(--accent); color: #fff; border-radius: 8px; padding: 8px 10px; font-weight: 600; }
+  .olist { overflow-y: auto; flex: 1; padding: 6px; }
+  .orow { position: relative; padding: 8px 52px 8px 10px; border-radius: 8px; cursor: pointer; }
+  .orow:hover { background: #f1f4f8; }
+  .orow.on { background: var(--accent-soft); }
+  .oname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ometa { font-size: 12px; color: var(--muted); }
+  .oacts { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; }
+  .oacts button { border: none; background: none; color: var(--muted); padding: 2px 5px; border-radius: 4px; font-size: 13px; }
+  .oacts button:hover { background: #e3e8ef; color: var(--ink); }
+  .orename { width: 100%; font: inherit; font-weight: 600; border: 1px solid var(--accent); border-radius: 4px; padding: 1px 4px; }
+  .side-f { border-top: 1px solid var(--line); padding: 8px 12px; }
+  .linkbtn { border: none; background: none; color: var(--accent); padding: 0; font-size: 13px; }
+  .linkbtn.on { font-weight: 700; }
+  .namerow { margin-bottom: 10px; }
+  .namerow input { width: 100%; font: inherit; font-size: 17px; font-weight: 600; padding: 8px 12px;
+                   border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .namerow input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  @media (max-width: 760px) {
+    .shell { flex-direction: column; gap: 12px; align-items: stretch; }   /* full width, so wide tables scroll inside their box instead of widening the page */
+    .side { width: 100%; position: static; max-height: none; }
+    .side-h { flex-direction: row; align-items: center; justify-content: space-between; }
+    .side-toggle { display: inline-block; }
+    .side-title { display: none; }
+    .side:not(.open) .olist, .side:not(.open) .side-f { display: none; }
+  }
+
+  .itembar { display: flex; justify-content: flex-end; gap: 8px; margin: -6px 0 10px; }
+  .plain { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 7px 12px; font-size: 13px; }
+  .plain:hover { background: #f1f4f8; }
+
+  /* safe mode */
+  .safe { display: flex; gap: 14px; align-items: center; justify-content: space-between; background: #fdecea; color: #8a1f12;
+          border: 1px solid #f1b8ae; border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+  .safe button { border: none; background: #c0392b; color: #fff; border-radius: 8px; padding: 7px 12px; font-weight: 600; white-space: nowrap; }
+
+  /* prep instructions + backups */
+  .prep { margin-top: 26px; }
+  .prep-h, .bk-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .prep h3, .bk h2, .bk h3 { margin: 0; }
+  .bk h3 { margin-top: 22px; }
+  .prep textarea, .restore { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 13px; line-height: 1.5;
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fbfcfe; resize: vertical; margin-top: 8px; }
+  .restore { min-height: 90px; margin-bottom: 8px; }
+  .bk td, .bk th { white-space: normal; }   /* wrap, so Restore stays on screen on a phone */
+  .bk td:last-child { white-space: nowrap; width: 1%; }
+  .add { border: none; background: var(--accent); color: #fff; border-radius: 8px; padding: 6px 12px; font-weight: 600; }
+
+  @media print { .side, .tabs, .clear, .chips, .itembar, .namerow, header .sub { display: none; } .panel { border: none; } }
 </style>
 </head>
 <body>
+<div class="shell">
+<aside class="side" id="side"></aside>
 <div class="wrap">
+  <div id="safeBanner"></div>
   <header>
     <div>
       <h1>MSS Packing Calculator</h1>
-      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.5</span></div>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.6</span></div>
     </div>
     <button class="clear" onclick="clearOrder()">Clear order</button>
   </header>
+  <div class="namerow" id="nameRow">
+    <input id="orderName" type="text" autocomplete="off" oninput="onOrderNameInput(this.value)">
+  </div>
   <div class="tabs" id="tabs"></div>
   <div class="panel" id="panel"></div>
+</div>
 </div>
 
 <script>
 'use strict';
 
-const STORE_KEY = 'prepCostCalcV1';
+// ---------- storage ----------
+// Saved orders must survive every update. The rules: a failed read never leads
+// to a write (safe mode locks saving), the raw data is snapshotted before every
+// update, migrations only add or reshape, and no old storage key is deleted.
+const APP_VERSION = 'v1.6';
+const SCHEMA = 2;
+const STORE_V1 = 'prepCostCalcV1';      // v1.0 to v1.5: a single order. Never deleted.
+const STORE_V2 = 'prepCostCalcV2';      // v1.6 on: the book of saved orders
+const BACKUP_KEY = 'prepCostCalc.backups';
+const BACKUPS_KEPT = 10;
+
+let safeMode = null;   // why the saved orders couldn't be read; while set, nothing is written
 
 function newItem(id) {
   return {
     id,
-    name: 'Item ' + id,
+    name: '',
     soldByCase: false,
-    casePack: '0',
-    packSize: '0',
+    casePack: '',
+    packSize: '',
     mode: 'itemized',          // 'itemized' | 'flat'
     bagCost: '0.25',
     labelCost: '0.25',
-    needsSetSticker: true,     // does this product get a “Sold as a Set” sticker
-    setStickerCost: '0.15',
+    setStickerCost: '0.15',    // blank or 0 = this product gets no "Sold as a Set" sticker
     caseLabelCost: '0.25',
     flatRate: '',
     casesPerPallet: '',
     casesOrdered: '',
     repackOK: 'yes',           // uneven cases: 'yes' = units may cross boxes
     boxStrategy: 'fill',       // 'fill' | 'spread' | 'strict'
-    reboxCount: '',            // cases that arrived open and need a fresh box
+    reboxCount: '',            // extra boxes for odd repacks, e.g. a case that arrived open
     extraBoxCost: '',
     compareSizes: [],
   };
 }
 
-let state = load();
-
-function load() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) {
-      const s = JSON.parse(raw);
-      if (s && Array.isArray(s.items) && s.items.length) {
-        // an order saved before a field existed keeps its own values but picks
-        // up defaults for anything new, so old saved orders never break
-        s.items = s.items.map(it => Object.assign(newItem(it.id), it));
-        return s;
-      }
-    }
-  } catch (e) { /* fall through to fresh state */ }
-  return { items: [newItem(1)], active: 1, nextId: 2 };
+// Lowest "Tab N" not already used in this order.
+function nextTabName(order) {
+  const used = new Set(order.items.map(i => i.name));
+  let n = 1;
+  while (used.has('Tab ' + n)) n++;
+  return 'Tab ' + n;
 }
 
-function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+const nowIso = () => new Date().toISOString();
+
+function freshOrder(id) {
+  const at = nowIso();
+  const o = { id, name: '', createdAt: at, updatedAt: at, items: [], active: null, nextId: 1 };
+  const it = newItem(o.nextId++);
+  it.name = nextTabName(o);
+  o.items.push(it);
+  o.active = it.id;
+  return o;
+}
+
+function freshBook() {
+  return { schema: SCHEMA, appVersion: APP_VERSION, orders: [freshOrder(1)], currentId: 1, nextOrderId: 2 };
+}
+
+function storeGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+function storeSet(key, value) { try { localStorage.setItem(key, value); return true; } catch (e) { return false; } }
+const rawNow = () => ({ v1: storeGet(STORE_V1), v2: storeGet(STORE_V2) });
+
+function readBackups() {
+  try { const b = JSON.parse(storeGet(BACKUP_KEY) || '[]'); return Array.isArray(b) ? b : []; }
+  catch (e) { return []; }
+}
+
+// Snapshot the raw stored text, not the parsed version, so a backup exists even
+// when the data can't be read. Skipped when identical to the newest snapshot,
+// so reloading a broken page can't push the good backups out of the list.
+function takeBackup(reason, raw) {
+  if (!raw.v1 && !raw.v2) return;
+  const list = readBackups();
+  const top = list[0];
+  if (top && top.v1 === (raw.v1 || null) && top.v2 === (raw.v2 || null)) return;
+  list.unshift({ at: nowIso(), version: APP_VERSION, reason, v1: raw.v1 || null, v2: raw.v2 || null });
+  for (let keep = BACKUPS_KEPT; keep >= 1; keep = Math.floor(keep / 2)) {
+    if (storeSet(BACKUP_KEY, JSON.stringify(list.slice(0, keep)))) return;   // shrink if the device is out of room
+  }
+}
+
+// v1.0 to v1.5 stored one order with no wrapper around it.
+function fromV1(old) {
+  const at = nowIso();
+  return { schema: 1, orders: [{ id: 1, name: 'Order 1', createdAt: at, updatedAt: at,
+           items: old.items, active: old.active, nextId: old.nextId }], currentId: 1, nextOrderId: 2 };
+}
+
+// One numbered step per change to what's stored. Steps only add or reshape.
+const MIGRATIONS = {
+  // 1 -> 2 (v1.6): the set-sticker switch folds into the cost box (switched
+  // off = blank cost), and automatic "Item N" names become "Tab N"
+  1(book) {
+    for (const o of book.orders) {
+      for (const it of o.items) {
+        if (it.needsSetSticker === false) it.setStickerCost = '';
+        delete it.needsSetSticker;
+      }
+      for (const it of o.items) {
+        const m = /^Item (\d+)$/.exec(it.name || '');
+        if (!m) continue;
+        const want = 'Tab ' + m[1];
+        it.name = o.items.some(x => x !== it && x.name === want) ? '' : want;   // '' gets a free number in repair()
+      }
+    }
+    book.schema = 2;
+    return book;
+  },
+};
+
+function migrate(book) {
+  while ((book.schema || 1) < SCHEMA) {
+    const step = MIGRATIONS[book.schema || 1];
+    if (!step) throw new Error('no upgrade path from saved format ' + book.schema);
+    book = step(book);
+  }
+  return book;
+}
+
+const byRecent = (a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt));
+
+// Check the shape and fill in anything newer versions added. Throws only when
+// the data is unrecognisable; small inconsistencies are repaired, not refused.
+function repair(book) {
+  if (!book || typeof book !== 'object' || !Array.isArray(book.orders))
+    throw new Error('saved orders are not in a format this version understands');
+  if (!book.orders.length) book.orders.push(freshOrder(1));
+  for (const o of book.orders) {
+    if (!o || typeof o !== 'object' || !Array.isArray(o.items) || typeof o.id !== 'number')
+      throw new Error('a saved order is damaged');
+    if (typeof o.name !== 'string') o.name = '';
+    if (!o.createdAt) o.createdAt = nowIso();
+    if (!o.updatedAt) o.updatedAt = o.createdAt;
+    o.items = o.items.map(it => {
+      if (!it || typeof it !== 'object' || typeof it.id !== 'number') throw new Error('a saved item is damaged');
+      return Object.assign(newItem(it.id), it);
+    });
+    if (!o.items.length) o.items.push(newItem(1));
+    for (const it of o.items) if (!String(it.name || '').trim()) it.name = nextTabName(o);
+    const maxItem = Math.max(...o.items.map(i => i.id));
+    if (!(o.nextId > maxItem)) o.nextId = maxItem + 1;
+    if (o.active !== 'total' && !o.items.some(i => i.id === o.active)) o.active = o.items[0].id;
+  }
+  const maxOrder = Math.max(...book.orders.map(o => o.id));
+  if (!(book.nextOrderId > maxOrder)) book.nextOrderId = maxOrder + 1;
+  if (!book.orders.some(o => o.id === book.currentId)) book.currentId = [...book.orders].sort(byRecent)[0].id;
+  book.schema = SCHEMA;
+  return book;
+}
+
+// Turn stored text (new format, or the old single order) into a checked book.
+function bookFromText(v2text, v1text) {
+  if (v2text) {
+    const b = JSON.parse(v2text);
+    if (!b || typeof b !== 'object') throw new Error('saved orders are not in a format this version understands');
+    if ((b.schema || 0) > SCHEMA) throw new Error('these orders were saved by a newer version of the calculator');
+    return repair(migrate(b));
+  }
+  if (v1text) {
+    const old = JSON.parse(v1text);
+    if (!old || !Array.isArray(old.items) || !old.items.length) return null;   // nothing was ever saved
+    return repair(migrate(fromV1(old)));
+  }
+  return null;
+}
+
+function load() {
+  const raw = rawNow();
+  let book;
+  try {
+    const stored = raw.v2 ? JSON.parse(raw.v2) : null;
+    const updating = raw.v2 ? (!stored || stored.appVersion !== APP_VERSION || (stored.schema || 0) < SCHEMA) : !!raw.v1;
+    if (updating) takeBackup('before update to ' + APP_VERSION, raw);
+    book = bookFromText(raw.v2, raw.v1);
+  } catch (e) {
+    // Never fall back to a blank order that would then be saved over the real
+    // data. Lock saving, keep everything as it is, and say so.
+    safeMode = (e && e.message) || String(e);
+    takeBackup('could not be read', raw);
+    return freshBook();
+  }
+  const last = readBackups()[0];
+  if (!last || new Date(last.at).toDateString() !== new Date().toDateString()) takeBackup('daily', raw);
+  if (!book) return freshBook();   // nothing saved yet, so nothing to write until the first edit
+  book.appVersion = APP_VERSION;
+  storeSet(STORE_V2, JSON.stringify(book));   // the old V1 key is left exactly as it was
+  return book;
+}
+
+let book = load();
+let state = currentOrder();   // the order on screen; every item function works on it
+let view = 'order';           // 'order' | 'backups'
+
+function currentOrder() { return book.orders.find(o => o.id === book.currentId) || book.orders[0]; }
+
+function persist() {
+  if (safeMode) return;
+  book.appVersion = APP_VERSION;
+  storeSet(STORE_V2, JSON.stringify(book));
+}
+
+// touch = this was an edit, so the order moves to the top of the list
+function save(touch = true) {
+  if (touch && state) state.updatedAt = nowIso();
+  persist();
+}
 
 function num(v) {
   if (v === '' || v === null || v === undefined) return null;
@@ -254,13 +477,24 @@ function numInt(v) {
 }
 
 const INT_FIELDS = ['casePack', 'packSize', 'casesOrdered', 'casesPerPallet', 'reboxCount'];
-function normalizeInt(id, key) {
+
+// On leaving a box: counts snap to whole numbers and a 0 clears to an empty
+// box (the grey placeholder shows instead). Updated in place, never with a
+// re-render: rebuilding the page between mouse-down and click would swallow
+// the click on whatever you were reaching for. The math already reads counts
+// as whole numbers and blank as 0, so nothing on screen needs recalculating.
+function tidyField(el, id, key) {
   const it = state.items.find(i => i.id === id);
   if (!it) return;
-  const n = num(it[key]);
-  if (n === null || Number.isInteger(n)) return;
-  it[key] = String(Math.floor(n));
-  save(); render();
+  const before = it[key];
+  const n = num(before);
+  if (n === null) return;
+  let after = INT_FIELDS.includes(key) ? String(Math.floor(n)) : before;
+  if (Number(after) === 0) after = '';
+  if (after === before) return;
+  it[key] = after;
+  el.value = after;
+  save();
 }
 
 // ---------- math ----------
@@ -278,7 +512,6 @@ function showWork(o) {
   const W = [], P = [];
   const one = !o.N;                       // no order quantity yet → figures are for a single case
   const cases = o.N || 1;
-  const plural = (n, w) => n === 1 ? `1 ${w}` : `${n} ${w === 'box' ? 'boxes' : w + 's'}`;
 
   if (!o.soldByCase) {
     W.push({ l: 'Units', c: `${plural(cases, 'case')} × ${o.casePack} per case`, v: plural(o.totalUnits, 'unit') });
@@ -292,8 +525,7 @@ function showWork(o) {
     W.push(o.mode === 'itemized'
       ? { l: o.setApplies ? 'Bag + ASIN + set sticker' : 'Bag + ASIN label',
           c: `${o.totalPacks} packs × (${fmt(o.bag)} + ${fmt(o.asin)}${o.setApplies ? ` + ${fmt(o.set)}` : ''})`,
-          v: fmt(o.totalPacks * o.perPackRate),
-          n: o.setApplies ? null : 'set sticker turned off for this product' }
+          v: fmt(o.totalPacks * o.perPackRate) }
       : { l: 'Flat fee', c: `${o.totalPacks} packs × ${fmt(o.perPackRate)}`, v: fmt(o.totalPacks * o.perPackRate) });
   }
   if (o.soldByCase || o.mode === 'itemized') {
@@ -328,13 +560,12 @@ function showWork(o) {
 
 function packRates(it, packSize) {
   if (it.mode === 'itemized') {
-    const bag = num(it.bagCost), label = num(it.labelCost), caseLabel = num(it.caseLabelCost);
-    const set = num(it.setStickerCost);
-    if (bag === null || label === null || caseLabel === null || set === null)
-      return { error: 'Enter the bag, ASIN label, set sticker, and packing label costs.' };
-    // whether the product needs a "Sold as a Set" sticker is David's call per
-    // product — a manufacturer twin pack can need one at pack size 1
-    const setApplies = it.needsSetSticker !== false;
+    // a blank cost box is $0: that step simply isn't done for this product
+    const bag = num(it.bagCost) || 0, label = num(it.labelCost) || 0, caseLabel = num(it.caseLabelCost) || 0;
+    const set = num(it.setStickerCost) || 0;
+    // a "Sold as a Set" sticker is David's call per product (a manufacturer twin
+    // pack can need one at pack size 1); leaving its cost blank means none
+    const setApplies = set > 0;
     return { perPack: bag + label + (setApplies ? set : 0), boxCost: caseLabel,
              bag, asin: label, set, setApplies };
   }
@@ -355,15 +586,14 @@ function compute(it, packSizeOverride) {
   const reboxCost = rebox * extraRate;
 
   if (it.soldByCase) {
-    const caseLabel = num(it.caseLabelCost);
-    if (caseLabel === null) return { error: 'Enter the packing label cost.' };
+    const caseLabel = num(it.caseLabelCost) || 0;
     const boxCount = N || 1;
     const cost = caseLabel * boxCount + reboxCost;
     const perCase = cost / boxCount;
     const out = {
       perCase, perPack: null, perUnit: null,
       perPallet: (pallets > 0) ? perCase * pallets : null,
-      packsLabel: null, warning: null,
+      packsLabel: null, warning: null, boxCount, rebox,
     };
     return Object.assign(out, showWork({
       soldByCase: true, N, boxes: boxCount, boxRate: caseLabel, additional: 0,
@@ -394,6 +624,7 @@ function compute(it, packSizeOverride) {
       perCase, perPack: cost / totalPacks, perUnit: cost / totalUnits,
       perPallet: (pallets > 0) ? perCase * pallets : null,
       packsLabel: String(packsPerCase), warning: null,
+      totalUnits, totalPacks, boxCount, rebox, packsPerCase,
     };
     return Object.assign(out, showWork(Object.assign({}, base, {
       totalUnits, totalPacks, boxes: boxCount, additional: 0, rebox, extraRate, cost,
@@ -475,7 +706,7 @@ function compute(it, packSizeOverride) {
     perPallet: (pallets > 0) ? chosen.perCase * pallets : null,
     packsLabel: `${packsMin}–${packsMax}`,
     uneven: true, totalUnits, totalPacks, looseUnits, packsMin, packsMax,
-    variants, chosen, warning: null,
+    variants, chosen, warning: null, boxCount: chosen.boxes, rebox,
   };
   return Object.assign(out, showWork(Object.assign({}, base, {
     uneven: true, totalUnits, totalPacks, looseUnits,
@@ -520,6 +751,7 @@ function set(itemId, key, value) {
 
 function addItem() {
   const it = newItem(state.nextId++);
+  it.name = nextTabName(state);
   state.items.push(it);
   state.active = it.id;
   save(); render();
@@ -530,7 +762,11 @@ function deleteItem(id) {
   if (!it) return;
   if (!confirm(`Delete “${it.name}”?`)) return;
   state.items = state.items.filter(i => i.id !== id);
-  if (!state.items.length) { state.items = [newItem(state.nextId++)]; }
+  if (!state.items.length) {
+    const fresh = newItem(state.nextId++);
+    fresh.name = nextTabName(state);
+    state.items = [fresh];
+  }
   if (state.active === id) state.active = state.items[0].id;
   save(); render();
 }
@@ -545,13 +781,193 @@ function resetItem(id) {
   save(); render();
 }
 
-function clearOrder() {
-  if (!confirm('Clear the whole order and start fresh?')) return;
-  state = { items: [newItem(1)], active: 1, nextId: 2 };
+// Copy a tab into a new one right after it. A JSON round trip so the copy
+// shares nothing (its compare list etc.) with the original.
+function duplicateItem(id) {
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  const copy = JSON.parse(JSON.stringify(it));
+  copy.id = state.nextId++;
+  const used = new Set(state.items.map(i => i.name));
+  const base = it.name.replace(/ \(copy( \d+)?\)$/, '');   // a copy of a copy is "(copy 2)", not "(copy) (copy)"
+  let name = `${base} (copy)`;
+  for (let n = 2; used.has(name); n++) name = `${base} (copy ${n})`;
+  copy.name = name;
+  state.items.splice(state.items.indexOf(it) + 1, 0, copy);
+  state.active = copy.id;
   save(); render();
 }
 
-function switchTab(id) { state.active = id; save(); render(); }
+// Empties the order on screen but keeps its name and its place in the list.
+function clearOrder() {
+  if (!confirm(`Clear every item from “${orderName(state)}” and start it fresh?`)) return;
+  state.items = [];
+  const it = newItem(state.nextId++);
+  it.name = nextTabName(state);
+  state.items.push(it);
+  state.active = it.id;
+  save(); render();
+}
+
+function switchTab(id) { state.active = id; save(false); render(); }
+
+// ---------- saved orders ----------
+const fmtWhen = iso => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const orderName = o => o.name.trim() || fmtWhen(o.createdAt);
+
+// Untouched: no name and a single tab still holding the defaults.
+function isPristine(o) {
+  if (o.name.trim() || o.items.length !== 1) return false;
+  const strip = it => { const c = Object.assign({}, it); delete c.id; delete c.name; delete c.showWork; return JSON.stringify(c); };
+  return strip(o.items[0]) === strip(newItem(0));
+}
+
+function openOrder(id) {
+  const leaving = state;
+  book.currentId = id;
+  state = currentOrder();
+  view = 'order';
+  // an untouched blank order isn't worth keeping in the list once you leave it
+  if (leaving !== state && isPristine(leaving) && book.orders.length > 1)
+    book.orders = book.orders.filter(o => o !== leaving);
+  persist(); render();
+}
+
+function newOrder() {
+  const blank = book.orders.find(isPristine);   // reuse a blank one rather than stack them up
+  if (blank) { openOrder(blank.id); }
+  else {
+    const o = freshOrder(book.nextOrderId++);
+    book.orders.push(o);
+    book.currentId = o.id;
+    state = o;
+    view = 'order';
+    persist(); render();
+  }
+  sideOpen = false;
+  renderSidebar();
+  const box = document.getElementById('orderName');
+  if (box) box.focus();
+}
+
+function deleteOrder(id) {
+  const o = book.orders.find(x => x.id === id);
+  if (!o) return;
+  if (!confirm(`Delete the order “${orderName(o)}”? A copy is kept under Backups.`)) return;
+  takeBackup(`before deleting “${orderName(o)}”`, rawNow());
+  book.orders = book.orders.filter(x => x !== o);
+  if (!book.orders.length) book.orders.push(freshOrder(book.nextOrderId++));
+  if (book.currentId === id) book.currentId = [...book.orders].sort(byRecent)[0].id;
+  state = currentOrder();
+  view = 'order';
+  persist(); render();
+}
+
+function renameOrder(id, name) {
+  const o = book.orders.find(x => x.id === id);
+  if (!o || o.name === name.trim()) return;
+  o.name = name.trim();
+  o.updatedAt = nowIso();
+  persist();
+  const box = document.getElementById('orderName');
+  if (box && o === state) box.value = o.name;   // a sidebar rename is never typed in the box itself
+}
+
+function startOrderRename(id) {
+  const o = book.orders.find(x => x.id === id);
+  const row = document.querySelector(`.orow[data-id="${id}"]`);
+  if (!o || !row) return;
+  const nameEl = row.querySelector('.oname');
+  const input = document.createElement('input');
+  input.className = 'orename';
+  input.value = o.name;
+  input.placeholder = fmtWhen(o.createdAt);
+  nameEl.replaceWith(input);
+  input.focus(); input.select();
+  let done = false;
+  const finish = keep => {
+    if (done) return;
+    done = true;
+    if (keep) renameOrder(id, input.value);
+    input.remove();
+    renderSidebar();
+  };
+  input.onkeydown = e => { if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); };
+  input.onblur = () => finish(true);
+  input.onclick = e => e.stopPropagation();
+}
+
+let sideOpen = false;   // phone / narrow window: the order list folds away behind a button
+function toggleSide() { sideOpen = !sideOpen; renderSidebar(); }
+
+// ---------- backups ----------
+function openBackups() { view = 'backups'; sideOpen = false; render(); }
+function closeBackups() { view = 'order'; render(); }
+
+// In safe mode the copy is the raw stored text, so nothing unreadable is lost.
+const backupText = () => safeMode ? (storeGet(STORE_V2) || storeGet(STORE_V1) || '') : JSON.stringify(book);
+
+function reloadPage() { location.reload(); }   // its own function so a test can hold it back
+
+function applyRestore(b) {
+  takeBackup('before restore', rawNow());
+  b.appVersion = APP_VERSION;
+  if (!storeSet(STORE_V2, JSON.stringify(b))) { alert('Couldn’t save the restored orders on this device.'); return; }
+  reloadPage();
+}
+
+function restoreBackup(i) {
+  const entry = readBackups()[i];
+  if (!entry) return;
+  let b;
+  try { b = bookFromText(entry.v2, entry.v1); if (!b) throw new Error('it is empty'); }
+  catch (e) { alert('This backup can’t be read: ' + e.message); return; }
+  if (!confirm(`Restore the backup from ${fmtWhen(entry.at)}? Your current orders are backed up first, so this can be undone.`)) return;
+  applyRestore(b);
+}
+
+function restoreFromText() {
+  const text = document.getElementById('restoreText').value.trim();
+  if (!text) return;
+  let b;
+  try {
+    const parsed = JSON.parse(text);
+    b = Array.isArray(parsed && parsed.orders) ? bookFromText(text, null) : bookFromText(null, text);
+    if (!b) throw new Error('it is empty');
+  } catch (e) { alert('That text isn’t a calculator backup: ' + e.message); return; }
+  const n = b.orders.length;
+  if (!confirm(`Replace the orders on this device with the ${n} order${n === 1 ? '' : 's'} in the pasted backup? Your current orders are backed up first.`)) return;
+  applyRestore(b);
+}
+
+// Only offered in safe mode: the unreadable data is already in Backups.
+function startFresh() {
+  if (!confirm('Start a blank order list? The unreadable data stays in Backups.')) return;
+  takeBackup('could not be read', rawNow());
+  storeSet(STORE_V2, JSON.stringify(freshBook()));
+  reloadPage();
+}
+
+// Old-style copy first: it works inside the Mac app's web view, where the
+// newer clipboard call can be refused without any error.
+function copyText(text, btn) {
+  const label = btn.textContent;
+  const flash = msg => { btn.textContent = msg; setTimeout(() => { btn.textContent = label; }, 2000); };
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+  ta.remove();
+  if (ok) return flash('Copied');
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(() => flash('Copied'), () => flash('Select the text and press ⌘C'));
+  else flash('Select the text and press ⌘C');
+}
 
 // ---------- rendering ----------
 const $tabs = document.getElementById('tabs');
@@ -559,9 +975,91 @@ const $panel = document.getElementById('panel');
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function render() {
+  renderSafeBanner();
+  renderSidebar();
+  const nameRow = document.getElementById('nameRow');
+  if (view === 'backups') {
+    nameRow.style.display = 'none';
+    $tabs.innerHTML = '';
+    renderBackups();
+    return;
+  }
+  nameRow.style.display = '';
+  const box = document.getElementById('orderName');
+  // leave it alone only while you're typing in it for this same order
+  if (document.activeElement !== box || box.dataset.oid !== String(state.id)) {
+    box.value = state.name;
+    box.dataset.oid = state.id;
+  }
+  box.placeholder = `Order name, e.g. store or SO number (unnamed: ${fmtWhen(state.createdAt)})`;
   renderTabs();
   if (state.active === 'total') renderTotal();
   else renderItemPanel(activeItem());
+}
+
+function onOrderNameInput(v) { state.name = v; save(); renderSidebar(); }
+
+function renderSafeBanner() {
+  const el = document.getElementById('safeBanner');
+  el.innerHTML = !safeMode ? '' : `<div class="safe">
+    <div><strong>Couldn’t read your saved orders.</strong> Nothing has been changed, and nothing will be
+    saved until this is fixed. <span class="muted">(${esc(safeMode)})</span></div>
+    <button onclick="openBackups()">Open Backups</button></div>`;
+}
+
+function renderSidebar() {
+  const side = document.getElementById('side');
+  if (!side || side.querySelector('input.orename')) return;   // don't rebuild under an open rename
+  const orders = [...book.orders].sort(byRecent);
+  side.className = 'side' + (sideOpen ? ' open' : '');
+  side.innerHTML = `
+    <div class="side-h">
+      <button class="side-toggle" onclick="toggleSide()">${sideOpen ? '▾' : '▸'} Orders (${orders.length})</button>
+      <div class="side-title">Orders</div>
+      <button class="newbtn" onclick="newOrder()">+ New order</button>
+    </div>
+    <div class="olist">${orders.map(o => {
+      const t = orderTotal(o);
+      const n = o.items.length;
+      return `<div class="orow${o.id === book.currentId && view === 'order' ? ' on' : ''}" data-id="${o.id}" onclick="openOrder(${o.id})">
+        <div class="oname">${esc(orderName(o))}</div>
+        <div class="ometa">${n} item${n === 1 ? '' : 's'} · ${t.complete ? fmt(t.grand) : 'no total yet'}</div>
+        <div class="ometa">Edited ${esc(fmtWhen(o.updatedAt))}</div>
+        <div class="oacts">
+          <button title="Rename" onclick="event.stopPropagation();startOrderRename(${o.id})">✎</button>
+          <button title="Delete" onclick="event.stopPropagation();deleteOrder(${o.id})">✕</button>
+        </div>
+      </div>`;
+    }).join('')}</div>
+    <div class="side-f"><button class="linkbtn${view === 'backups' ? ' on' : ''}" onclick="openBackups()">Backups</button></div>`;
+}
+
+function renderBackups() {
+  const list = readBackups();
+  const ordersIn = e => {
+    try { const b = bookFromText(e.v2, e.v1); return b ? `${b.orders.length} order${b.orders.length === 1 ? '' : 's'}` : 'empty'; }
+    catch (err) { return 'unreadable'; }
+  };
+  $panel.innerHTML = `
+    <div class="bk">
+      <div class="bk-top"><h2>Backups</h2><button class="clear" onclick="closeBackups()">← Back to the order</button></div>
+      <p class="hint">Taken automatically before every update, before an order is deleted, before a restore, and once a day.
+      The newest ${BACKUPS_KEPT} are kept, on this device only.</p>
+      ${list.length ? `<div class="tablewrap"><table>
+        <thead><tr><th>When</th><th>Why</th><th>Holds</th><th></th></tr></thead>
+        <tbody>${list.map((e, i) => `<tr>
+          <td>${esc(fmtWhen(e.at))}</td><td>${esc(e.reason)}</td><td>${esc(ordersIn(e))}</td>
+          <td><button class="add" onclick="restoreBackup(${i})">Restore</button></td></tr>`).join('')}</tbody>
+      </table></div>` : '<p class="incomplete">No backups yet. One is taken the first time anything is saved each day.</p>'}
+      <h3>Move orders to another device</h3>
+      <p class="hint">Copy here, then paste into the box on the other device and restore.</p>
+      <button class="add" onclick="copyText(backupText(), this)">Copy backup</button>
+      <textarea id="restoreText" class="restore" placeholder="Paste a copied backup here"></textarea>
+      <button class="add" onclick="restoreFromText()">Restore from pasted text</button>
+      ${safeMode ? `<h3>Start over</h3>
+      <p class="hint">If no backup works, start a blank list. The unreadable data stays in this list.</p>
+      <button class="clear" onclick="startFresh()">Start a blank order list</button>` : ''}
+    </div>`;
 }
 
 function renderTabs() {
@@ -606,7 +1104,9 @@ function startRename(tab, nameEl, it) {
   nameEl.replaceWith(input);
   input.focus(); input.select();
   const commit = () => {
-    it.name = input.value.trim() || it.name;
+    const typed = input.value.trim();
+    if (typed) it.name = typed;
+    else { it.name = ''; it.name = nextTabName(state); }
     save(); render();
   };
   input.onblur = commit;
@@ -631,9 +1131,9 @@ function renderItemPanel(it) {
 
   let inputs = `<div class="row">${soldSeg}</div>
   <div class="row nowrap">
-    ${it.soldByCase ? '' : field('Case pack <span class="muted" style="font-weight:400">(units per case)</span>', numInput(it, 'casePack', 'e.g. 16', '1'), '')}
-    ${field('Cases in order', numInput(it, 'casesOrdered', 'e.g. 100', '1'), '')}
-    ${field('Cases per pallet <span class="muted" style="font-weight:400">(optional)</span>', numInput(it, 'casesPerPallet', 'e.g. 90', '1'), '')}
+    ${it.soldByCase ? '' : field('Case pack <span class="muted" style="font-weight:400">(units per case)</span>', numInput(it, 'casePack', '0', '1'), '')}
+    ${field('Cases in order', numInput(it, 'casesOrdered', '0', '1'), '')}
+    ${field('Cases per pallet <span class="muted" style="font-weight:400">(optional)</span>', numInput(it, 'casesPerPallet', '0', '1'), '')}
   </div>`;
 
   if (!it.soldByCase) {
@@ -646,44 +1146,38 @@ function renderItemPanel(it) {
       </div>`;
     if (it.mode === 'itemized') {
       inputs += `<div class="row">
-        ${field('Pack size (units per bag)', numInput(it, 'packSize', '1 = each unit its own bag', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
+        ${field('Pack size (units per bag)', numInput(it, 'packSize', '0', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
         ${modeSeg}
       </div>
       <div class="row nowrap">
-        ${field('Bag Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'bagCost', '0.25', '0.01'))}
-        ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.25', '0.01'))}
-        ${field('Set Sticker <span class="muted" style="font-weight:400">($/pack)</span>', `
-          <div class="flatwrap">
-            <button class="sw${it.needsSetSticker !== false ? ' on' : ''}" role="switch"
-                    aria-checked="${it.needsSetSticker !== false}" aria-label="Set sticker"
-                    title="${it.needsSetSticker !== false ? 'On — tap to turn off' : 'Off — tap to turn on'}"
-                    onclick="setNeedsSet(${it.id}, ${it.needsSetSticker === false})"><span></span></button>
-            ${it.needsSetSticker !== false ? numInput(it, 'setStickerCost', '0.15', '0.01') : ''}
-          </div>`,
-          it.needsSetSticker !== false ? '“Sold as a Set” sticker' : 'not charged on this product')}
-        ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.25', '0.01'))}
+        ${field('Bag Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'bagCost', '0.00', '0.01'))}
+        ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.00', '0.01'))}
+        ${field('Set Sticker Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'setStickerCost', '0.00', '0.01'),
+            'leave blank if not needed')}
+        ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.00', '0.01'))}
       </div>`;
     } else {
       inputs += `<div class="row">
-        ${field('Pack size (units per bag)', numInput(it, 'packSize', '1 = each unit its own bag', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
+        ${field('Pack size (units per bag)', numInput(it, 'packSize', '0', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
         ${modeSeg}
-        ${field('Flat fee — all in <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'flatRate', 'e.g. 0.60', '0.01'), 'Pack size 1 = per unit')}
+        ${field('Flat fee — all in <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'flatRate', '0.00', '0.01'), 'Pack size 1 = per unit')}
       </div>`;
     }
   } else {
     inputs += `<div class="row">
-      ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.25', '0.01'))}
+      ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.00', '0.01'))}
     </div>`;
   }
 
   inputs += `<div class="row nowrap">
     ${field('Additional Boxes <span class="muted" style="font-weight:400">(for odd repacks that require more boxes)</span>',
-        numInput(it, 'reboxCount', 'e.g. 3', '1'), 'e.g. a case that arrives open and has to be reboxed')}
+        numInput(it, 'reboxCount', '0', '1'), 'e.g. a case that arrives open and has to be reboxed')}
     ${field('Cost per Box <span class="muted" style="font-weight:400">($/box)</span>',
-        numInput(it, 'extraBoxCost', 'e.g. 1.00', '0.01'))}
+        numInput(it, 'extraBoxCost', '0.00', '0.01'))}
   </div>`;
 
-  const resetBtn = `<div style="display:flex;justify-content:flex-end;margin:-6px 0 10px">
+  const resetBtn = `<div class="itembar">
+    <button class="plain" onclick="duplicateItem(${it.id})" title="Copy this tab into a new tab">⧉ Duplicate item</button>
     <button class="clear" onclick="resetItem(${it.id})" title="Reset this item’s numbers to defaults">↺ Reset item</button>
   </div>`;
   $panel.innerHTML = resetBtn + inputs + '<div id="unevenBox"></div><hr class="divider"><div id="results"></div>' +
@@ -692,9 +1186,10 @@ function renderItemPanel(it) {
 }
 
 function numInput(it, key, placeholder, step, extra) {
-  const whole = INT_FIELDS.includes(key) ? ` onblur="normalizeInt(${it.id},'${key}')"` : '';
-  return `<input type="number" min="0" step="${step || 'any'}" value="${esc(it[key])}" placeholder="${esc(placeholder || '')}"
-    oninput="set(${it.id},'${key}',this.value);renderResults(activeItem())"${whole} ${extra || ''}>`;
+  const v = it[key];
+  const shown = (v === '' || v == null || Number(v) === 0) ? '' : v;   // a 0 shows as the grey placeholder
+  return `<input type="number" min="0" step="${step || 'any'}" value="${esc(shown)}" placeholder="${esc(placeholder || '')}"
+    oninput="set(${it.id},'${key}',this.value);renderResults(activeItem())" onblur="tidyField(this,${it.id},'${key}')" ${extra || ''}>`;
 }
 
 // Enter in the pack-size box drops that size straight into the compare section
@@ -718,12 +1213,12 @@ function renderUneven(it) {
   const el = document.getElementById('unevenBox');
   if (!el) return;
   const on = isUneven(it);
-  const sig = on ? `${num(it.casePack)}|${num(it.packSize)}|${it.repackOK}` : 'off';
+  const sig = on ? `${numInt(it.casePack)}|${numInt(it.packSize)}|${it.repackOK}` : 'off';
   if (el.dataset.sig === sig) return;
   el.dataset.sig = sig;
   if (!on) { el.innerHTML = ''; return; }
 
-  const C = num(it.casePack), P = num(it.packSize);
+  const C = numInt(it.casePack), P = numInt(it.packSize);
   const lo = Math.floor(C / P) * P, hi = Math.ceil(C / P) * P;
   el.innerHTML = `
     <div class="ask">
@@ -741,8 +1236,6 @@ function renderUneven(it) {
       </div>
     </div>`;
 }
-
-function setNeedsSet(id, v) { set(id, 'needsSetSticker', v); render(); }
 
 function setRepack(id, v) {
   set(id, 'repackOK', v);
@@ -763,6 +1256,7 @@ function renderResults(it) {
   if (r.error) {
     el.innerHTML = `<div class="incomplete">${esc(r.error)}</div>`;
     refreshCompareTable(it);
+    renderSidebar();
     return;
   }
   const qty = orderedQty(it);
@@ -782,6 +1276,7 @@ function renderResults(it) {
     ${variantsHtml(it, r)}
     ${workHtml(it, r)}`;
   refreshCompareTable(it);
+  renderSidebar();
 }
 
 // The full arithmetic, line by line.
@@ -870,7 +1365,7 @@ function refreshCompareTable(it) {
   input.onkeydown = (e) => { if (e.key === 'Enter') doAdd(); };
   chips.appendChild(input); chips.appendChild(add);
 
-  const current = num(it.packSize);
+  const current = numInt(it.packSize);
   const sizes = [...it.compareSizes].sort((a, b) => a - b);
   if (!sizes.length) { tbl.innerHTML = '<div class="hint">Add a pack size above to compare.</div>'; return; }
 
@@ -902,37 +1397,107 @@ function refreshCompareTable(it) {
 }
 
 // ---------- order total ----------
-function renderTotal() {
-  let rows = '';
-  let grand = 0;
-  let allGood = true;
-  for (const it of state.items) {
+// One source for an order's money, used by the Order Total tab and the left bar.
+function orderTotal(order) {
+  let grand = 0, complete = 0;
+  const rows = order.items.map(it => {
     const r = compute(it);
     const qty = orderedQty(it);
-    let flag = null;
-    if (r.error) flag = r.error;
-    else if (!qty.cases) flag = 'Enter “cases in order” on this item’s tab.';
-    if (flag) {
-      allGood = false;
-      rows += `<tr><td>${esc(it.name)}</td><td>—</td><td>—</td><td class="flag">⚠ ${esc(flag)}</td></tr>`;
+    const flag = r.error ? r.error : (!qty.cases ? 'Enter “cases in order” on this item’s tab.' : null);
+    if (flag) return { it, flag };
+    const total = r.perCase * qty.cases;
+    grand += total; complete++;
+    return { it, r, qty, total };
+  });
+  return { rows, grand, complete, allGood: complete === order.items.length };
+}
+
+const plural = (n, w) => n === 1 ? `1 ${w}` : `${n} ${w === 'box' ? 'boxes' : w + 's'}`;
+
+// What the warehouse has to do for one item: steps and counts, never prices.
+// Built from the same compute() result as the money, so the two can't disagree.
+// A cost box left blank means that step isn't done, so it isn't listed.
+function prepSteps(it, n) {
+  const N = numInt(it.casesOrdered);
+  const C = numInt(it.casePack), P = numInt(it.packSize);
+  const out = [`${n}. ${it.name}` + (N ? `: ${plural(N, 'case')}` : '') + (!it.soldByCase && C ? `, ${C} per case` : '')];
+  const step = line => out.push('   - ' + line);
+  const r = compute(it);
+  if (r.error) { step('(not filled in yet)'); return out; }
+  if (!N) { step('(cases in order not entered yet)'); return out; }
+
+  if (it.soldByCase) {
+    step('Do not open. Resold by case.');
+    if (num(it.caseLabelCost) > 0) step(`Packing label on each case (${N})`);
+  } else {
+    const flat = it.mode === 'flat';          // flat fee doesn't say which steps it covers: list the standard three
+    const units = r.totalUnits, packs = r.totalPacks, what = P === 1 ? 'unit' : 'pack';
+    step(P === 1 ? `Open each case: ${units} units, each one bagged on its own`
+                 : `Open each case: ${units} units into packs of ${P} (${plural(packs, 'pack')})`);
+    if (flat || num(it.bagCost) > 0) step(`Bag each ${what} (${packs} bags)`);
+    if (flat || num(it.labelCost) > 0) step(`ASIN label on each ${what} (${packs})`);
+    if (!flat && num(it.setStickerCost) > 0) step(`"Sold as a Set" sticker on each ${what} (${packs})`);
+    if (!r.uneven) {
+      step(P === 1 ? 'Put the bagged units back in their cases' : `Put the packs back in their cases (${r.packsPerCase} per case)`);
     } else {
-      const total = r.perCase * qty.cases;
-      grand += total;
-      rows += `<tr><td>${esc(it.name)}</td><td>${esc(qty.label)}</td><td>${fmt(r.perCase)}</td><td><strong>${fmt(total)}</strong></td></tr>`;
+      const v = r.chosen;
+      if (v.key === 'strict') {
+        const left = packs - N * r.packsMin;
+        step(`Keep ${plural(r.packsMin, 'pack')} (${r.packsMin * P} units) in each original box`
+          + (v.additional ? `, put the ${plural(left, 'leftover pack')} in ${v.additional} new box${v.additional === 1 ? '' : 'es'}` : ''));
+      } else if (v.key === 'spread') {
+        step(`Repack into all ${N} boxes: ${v.detail}`);
+      } else {
+        step(`Repack into ${plural(v.boxes, 'box')}: ${v.detail}` + (v.unused ? ` (${v.unused} original box${v.unused === 1 ? '' : 'es'} left over)` : ''));
+      }
     }
+    if (flat || num(it.caseLabelCost) > 0) step(`Packing label on each box (${r.boxCount})`);
   }
+  if (r.rebox) step(`Rebox ${plural(r.rebox, 'case')} into new boxes`);
+  const cpp = numInt(it.casesPerPallet);
+  if (cpp > 0) {
+    const b = r.boxCount || N, full = Math.floor(b / cpp), loose = b - full * cpp;
+    const unit = it.soldByCase ? 'case' : 'box';
+    step(full
+      ? `Palletize: ${cpp} ${unit === 'box' ? 'boxes' : 'cases'} per pallet (${plural(full, 'pallet')}${loose ? ` + ${loose} loose` : ''})`
+      : `Palletize: all ${plural(b, unit)} on one partial pallet (a full pallet is ${cpp})`);
+  }
+  return out;
+}
+
+function prepText(order) {
+  const day = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const lines = [order.name.trim() ? `PREP: ${order.name.trim()} (${day})` : `PREP (${day})`, ''];
+  order.items.forEach((it, i) => lines.push(...prepSteps(it, i + 1), ''));
+  return lines.join('\n').trim();
+}
+
+function renderTotal() {
+  const t = orderTotal(state);
+  const rows = t.rows.map(x => x.flag
+    ? `<tr><td>${esc(x.it.name)}</td><td>—</td><td>—</td><td class="flag">⚠ ${esc(x.flag)}</td></tr>`
+    : `<tr><td>${esc(x.it.name)}</td><td>${esc(x.qty.label)}</td><td>${fmt(x.r.perCase)}</td><td><strong>${fmt(x.total)}</strong></td></tr>`).join('');
+  const text = prepText(state);
   $panel.innerHTML = `
     <div class="tablewrap"><table>
       <thead><tr><th>Item</th><th>Quantity</th><th>Prep cost / case</th><th>Item total</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <div class="grand">
-      <span class="label">Order prep total${allGood ? '' : ' (complete items only)'}</span>
-      <span class="amount">${fmt(grand)}</span>
+      <span class="label">Order prep total${t.allGood ? '' : ' (complete items only)'}</span>
+      <span class="amount">${fmt(t.grand)}</span>
+    </div>
+    <div class="prep">
+      <div class="prep-h"><h3>Prep instructions</h3>
+        <button class="add" onclick="copyText(document.getElementById('prepText').value, this)">Copy</button></div>
+      <p class="hint">No prices. Paste into WhatsApp or email for the warehouse.</p>
+      <textarea id="prepText" readonly rows="${text.split('\n').length + 1}">${esc(text)}</textarea>
     </div>`;
+  renderSidebar();
 }
 
-render();
+// Only draws when the page is real; the release test loads this script with no page.
+if (document.getElementById('panel')) render();
 </script>
 </body>
 </html>

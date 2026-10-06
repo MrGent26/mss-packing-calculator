@@ -1,0 +1,12 @@
+{
+  "about": "data written by a newer version (e.g. an old offline copy opening new data): hands off",
+  "storage": {
+    "prepCostCalcV2": "{\"schema\": 99, \"orders\": [{\"id\": 1, \"items\": [{\"id\": 1}]}], \"currentId\": 1}"
+  },
+  "expect": {
+    "safeMode": true,
+    "untouched": [
+      "prepCostCalcV2"
+    ]
+  }
+}

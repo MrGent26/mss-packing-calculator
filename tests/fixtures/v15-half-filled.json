@@ -1,0 +1,27 @@
+{
+  "about": "an order caught mid-typing: partial values must survive exactly",
+  "storage": {
+    "prepCostCalcV1": "{\"items\": [{\"id\": 1, \"name\": \"Item 1\", \"soldByCase\": false, \"casePack\": \"9\", \"packSize\": \"\", \"mode\": \"itemized\", \"bagCost\": \"0.3\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}], \"active\": 1, \"nextId\": 2}"
+  },
+  "expect": {
+    "safeMode": false,
+    "untouched": [
+      "prepCostCalcV1"
+    ],
+    "orders": [
+      {
+        "name": "Order 1",
+        "items": [
+          {
+            "name": "Tab 1",
+            "casePack": "9",
+            "packSize": "",
+            "casesOrdered": "",
+            "bagCost": "0.3"
+          }
+        ],
+        "grand": 0
+      }
+    ]
+  }
+}

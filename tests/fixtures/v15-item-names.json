@@ -1,0 +1,32 @@
+{
+  "about": "old automatic names become Tab N; a typed name is kept; a clash takes the next free number",
+  "storage": {
+    "prepCostCalcV1": "{\"items\": [{\"id\": 1, \"name\": \"Item 1\", \"soldByCase\": false, \"casePack\": \"0\", \"packSize\": \"0\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}, {\"id\": 3, \"name\": \"Item 3\", \"soldByCase\": false, \"casePack\": \"0\", \"packSize\": \"0\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}, {\"id\": 4, \"name\": \"Towels\", \"soldByCase\": false, \"casePack\": \"0\", \"packSize\": \"0\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}, {\"id\": 5, \"name\": \"Tab 1\", \"soldByCase\": false, \"casePack\": \"0\", \"packSize\": \"0\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}], \"active\": 1, \"nextId\": 6}"
+  },
+  "expect": {
+    "safeMode": false,
+    "untouched": [
+      "prepCostCalcV1"
+    ],
+    "orders": [
+      {
+        "name": "Order 1",
+        "items": [
+          {
+            "name": "Tab 2"
+          },
+          {
+            "name": "Tab 3"
+          },
+          {
+            "name": "Towels"
+          },
+          {
+            "name": "Tab 1"
+          }
+        ],
+        "grand": 0
+      }
+    ]
+  }
+}

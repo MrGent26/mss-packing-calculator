@@ -1,0 +1,40 @@
+{
+  "about": "a v1.6 book reloaded by v1.6: every order, name and number unchanged, the open order stays open",
+  "storage": {
+    "prepCostCalcV2": "{\"schema\": 2, \"appVersion\": \"v1.6\", \"currentId\": 2, \"nextOrderId\": 3, \"orders\": [{\"id\": 1, \"name\": \"Brighton Best 99c\", \"createdAt\": \"2026-10-01T14:00:00.000Z\", \"updatedAt\": \"2026-10-02T09:00:00.000Z\", \"active\": 1, \"nextId\": 2, \"items\": [{\"id\": 1, \"name\": \"Tab 1\", \"soldByCase\": false, \"casePack\": \"16\", \"packSize\": \"4\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"10\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}]}, {\"id\": 2, \"name\": \"\", \"createdAt\": \"2026-10-03T10:00:00.000Z\", \"updatedAt\": \"2026-10-03T10:05:00.000Z\", \"active\": \"total\", \"nextId\": 3, \"items\": [{\"id\": 1, \"name\": \"Tab 1\", \"soldByCase\": false, \"casePack\": \"9\", \"packSize\": \"2\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"setStickerCost\": \"\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"24\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}, {\"id\": 2, \"name\": \"Gloves\", \"soldByCase\": true, \"casePack\": \"0\", \"packSize\": \"0\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"10\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}]}]}"
+  },
+  "expect": {
+    "safeMode": false,
+    "untouched": [],
+    "currentId": 2,
+    "orders": [
+      {
+        "name": "Brighton Best 99c",
+        "items": [
+          {
+            "name": "Tab 1",
+            "casePack": "16"
+          }
+        ],
+        "grand": 28.5
+      },
+      {
+        "name": "",
+        "active": "total",
+        "items": [
+          {
+            "name": "Tab 1",
+            "casePack": "9",
+            "setStickerCost": ""
+          },
+          {
+            "name": "Gloves",
+            "soldByCase": true
+          }
+        ],
+        "grand": 62.0,
+        "note": "blank set-sticker cost = $0 from v1.6 (v1.5 refused to total it)"
+      }
+    ]
+  }
+}

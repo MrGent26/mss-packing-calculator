@@ -1,0 +1,12 @@
+{
+  "about": "readable text but an item with no id: refuse rather than guess",
+  "storage": {
+    "prepCostCalcV2": "{\"schema\": 2, \"orders\": [{\"id\": 1, \"name\": \"X\", \"items\": [{\"name\": \"no id\"}]}], \"currentId\": 1}"
+  },
+  "expect": {
+    "safeMode": true,
+    "untouched": [
+      "prepCostCalcV2"
+    ]
+  }
+}

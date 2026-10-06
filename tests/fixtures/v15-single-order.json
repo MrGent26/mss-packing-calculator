@@ -1,0 +1,39 @@
+{
+  "about": "v1.5 order in progress: a 16-pack in 4s with set sticker, plus a resold-by-case item",
+  "storage": {
+    "prepCostCalcV1": "{\"items\": [{\"id\": 1, \"name\": \"Item 1\", \"soldByCase\": false, \"casePack\": \"16\", \"packSize\": \"4\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"90\", \"casesOrdered\": \"10\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": [2, 4], \"showWork\": false}, {\"id\": 2, \"name\": \"Gloves\", \"soldByCase\": true, \"casePack\": \"0\", \"packSize\": \"0\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": true, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"10\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}], \"active\": 2, \"nextId\": 3}"
+  },
+  "expect": {
+    "safeMode": false,
+    "untouched": [
+      "prepCostCalcV1"
+    ],
+    "orders": [
+      {
+        "name": "Order 1",
+        "active": 2,
+        "items": [
+          {
+            "name": "Tab 1",
+            "casePack": "16",
+            "packSize": "4",
+            "casesOrdered": "10",
+            "casesPerPallet": "90",
+            "setStickerCost": "0.15",
+            "compareSizes": [
+              2,
+              4
+            ],
+            "showWork": false
+          },
+          {
+            "name": "Gloves",
+            "soldByCase": true,
+            "casesOrdered": "10"
+          }
+        ],
+        "grand": 31
+      }
+    ]
+  }
+}

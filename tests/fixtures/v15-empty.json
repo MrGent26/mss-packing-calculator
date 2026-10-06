@@ -1,0 +1,22 @@
+{
+  "about": "v1.5 storage with no items (nothing was ever entered): start fresh, no safe mode",
+  "storage": {
+    "prepCostCalcV1": "{\"items\": [], \"active\": 1, \"nextId\": 2}"
+  },
+  "expect": {
+    "safeMode": false,
+    "untouched": [
+      "prepCostCalcV1"
+    ],
+    "orders": [
+      {
+        "items": [
+          {
+            "name": "Tab 1"
+          }
+        ],
+        "grand": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "about": "v1.5 item with the set-sticker switch turned off: must come out with no sticker, same money",
+  "storage": {
+    "prepCostCalcV1": "{\"items\": [{\"id\": 1, \"name\": \"AXE twin\", \"soldByCase\": false, \"casePack\": \"16\", \"packSize\": \"4\", \"mode\": \"itemized\", \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"needsSetSticker\": false, \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"flatRate\": \"\", \"casesPerPallet\": \"\", \"casesOrdered\": \"10\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}], \"active\": 1, \"nextId\": 2}"
+  },
+  "expect": {
+    "safeMode": false,
+    "untouched": [
+      "prepCostCalcV1"
+    ],
+    "orders": [
+      {
+        "name": "Order 1",
+        "items": [
+          {
+            "name": "AXE twin",
+            "setStickerCost": "",
+            "casePack": "16"
+          }
+        ],
+        "grand": 22.5
+      }
+    ]
+  }
+}
