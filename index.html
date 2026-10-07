@@ -250,7 +250,7 @@
   <header>
     <div>
       <h1>MSS Packing Calculator</h1>
-      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.7</span></div>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.7.1</span></div>
     </div>
     <button class="clear" onclick="clearOrder()">Clear order</button>
   </header>
@@ -269,7 +269,7 @@
 // Saved orders must survive every update. The rules: a failed read never leads
 // to a write (safe mode locks saving), the raw data is snapshotted before every
 // update, migrations only add or reshape, and no old storage key is deleted.
-const APP_VERSION = 'v1.7';
+const APP_VERSION = 'v1.7.1';
 const SCHEMA = 3;
 const STORE_V1 = 'prepCostCalcV1';      // v1.0 to v1.5: a single order. Never deleted.
 const STORE_V2 = 'prepCostCalcV2';      // v1.6 on: the book of saved orders
@@ -1224,13 +1224,11 @@ function renderItemPanel(it) {
     ${field('Cases in order', numInput(it, 'casesOrdered', '0', '1'), '')}
     ${it.soldByCase ? '' : field('Case pack <span class="muted" style="font-weight:400">(units per case)</span>', numInput(it, 'casePack', '0', '1'), '')}
     ${field('Cases per pallet <span class="muted" style="font-weight:400">(optional)</span>', numInput(it, 'casesPerPallet', '0', '1'), '')}
+    ${it.soldByCase ? '' : field('Pack size <span class="muted" style="font-weight:400">(units per bag)</span>', numInput(it, 'packSize', '0', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
   </div>`;
 
   if (!it.soldByCase) {
-    inputs += `<div class="row">
-      ${field('Pack size (units per bag)', numInput(it, 'packSize', '0', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
-    </div>
-    <div class="row nowrap">
+    inputs += `<div class="row nowrap">
       ${field('Bag Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'bagCost', '0.00', '0.01'))}
       ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.00', '0.01'))}
       ${field('Set Sticker Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'setStickerCost', '0.00', '0.01'))}
