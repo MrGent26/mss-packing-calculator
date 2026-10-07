@@ -1,0 +1,53 @@
+{
+  "about": "v1.6 book opened by v1.7: flat fee becomes itemized (rate kept in the data), the Additional boxes switch starts on only where boxes already counted",
+  "storage": {
+    "prepCostCalcV2": "{\"schema\": 2, \"appVersion\": \"v1.6\", \"currentId\": 1, \"nextOrderId\": 2, \"orders\": [{\"id\": 1, \"name\": \"Flat and boxes\", \"createdAt\": \"2026-10-05T14:00:00.000Z\", \"updatedAt\": \"2026-10-06T09:00:00.000Z\", \"active\": 1, \"nextId\": 5, \"items\": [{\"id\": 1, \"name\": \"Flat towels\", \"casePack\": \"16\", \"packSize\": \"4\", \"mode\": \"flat\", \"flatRate\": \"0.60\", \"casesOrdered\": \"10\", \"soldByCase\": false, \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"casesPerPallet\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}, {\"id\": 2, \"name\": \"Rebox even\", \"casePack\": \"12\", \"packSize\": \"6\", \"mode\": \"itemized\", \"flatRate\": \"\", \"casesOrdered\": \"5\", \"soldByCase\": false, \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"casesPerPallet\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"2\", \"extraBoxCost\": \"1.25\", \"compareSizes\": []}, {\"id\": 3, \"name\": \"Uneven no cost\", \"casePack\": \"9\", \"packSize\": \"2\", \"mode\": \"itemized\", \"flatRate\": \"\", \"casesOrdered\": \"24\", \"soldByCase\": false, \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"setStickerCost\": \"\", \"caseLabelCost\": \"0.25\", \"casesPerPallet\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}, {\"id\": 4, \"name\": \"Plain\", \"casePack\": \"16\", \"packSize\": \"4\", \"mode\": \"itemized\", \"flatRate\": \"\", \"casesOrdered\": \"10\", \"soldByCase\": false, \"bagCost\": \"0.25\", \"labelCost\": \"0.25\", \"setStickerCost\": \"0.15\", \"caseLabelCost\": \"0.25\", \"casesPerPallet\": \"\", \"repackOK\": \"yes\", \"boxStrategy\": \"fill\", \"reboxCount\": \"\", \"extraBoxCost\": \"\", \"compareSizes\": []}]}]}"
+  },
+  "expect": {
+    "safeMode": false,
+    "untouched": [],
+    "currentId": 1,
+    "orders": [
+      {
+        "name": "Flat and boxes",
+        "items": [
+          {
+            "name": "Flat towels",
+            "mode": "flat",
+            "flatRate": "0.60",
+            "extraBoxes": false
+          },
+          {
+            "name": "Rebox even",
+            "reboxCount": "2",
+            "extraBoxCost": "1.25",
+            "extraBoxes": true,
+            "absent": [
+              "mode",
+              "flatRate"
+            ]
+          },
+          {
+            "name": "Uneven no cost",
+            "extraBoxCost": "",
+            "extraBoxes": true,
+            "absent": [
+              "mode",
+              "flatRate"
+            ]
+          },
+          {
+            "name": "Plain",
+            "extraBoxes": false,
+            "absent": [
+              "mode",
+              "flatRate"
+            ]
+          }
+        ],
+        "grand": 126.75,
+        "note": "v1.6 total was $122.25: the flat item was $24.00 (40 packs x $0.60), itemized it is $28.50. Every other item is unchanged."
+      }
+    ]
+  }
+}

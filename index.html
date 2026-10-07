@@ -37,28 +37,32 @@
   header .sub { color: var(--muted); font-size: 13px; }
   button { font: inherit; cursor: pointer; }
 
-  /* Tab bar */
-  .tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 0; }
+  /* Tab bar. Item tabs wrap inside their own area and Order Total stays pinned
+     top right, so a second row of tabs can never strand it on a line of its own.
+     Tabs are separate pills, not folder tabs joined to the panel: with two rows
+     only one row can touch the panel, and the joined look pointed at the wrong tab. */
+  .tabs { display: flex; gap: 6px; align-items: flex-start; margin-bottom: 10px; }
+  .tablist { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   .tab {
     display: inline-flex; align-items: center; gap: 8px;
-    background: #e9edf2; border: 1px solid var(--line); border-bottom: none;
-    border-radius: 8px 8px 0 0; padding: 8px 12px; color: var(--muted);
+    background: #e9edf2; border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 12px; color: var(--muted);
     user-select: none; cursor: pointer; max-width: 220px;
   }
-  .tab.active { background: var(--panel); color: var(--ink); font-weight: 600; position: relative; }
-  .tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--panel); }
+  .tab:hover { background: #e1e6ed; }
+  .tab.active { background: var(--panel); color: var(--ink); font-weight: 600; border-color: var(--accent); box-shadow: inset 0 -2px 0 var(--accent); }
   .tab .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tab.active .name { cursor: text; }
   .tab .close { border: none; background: none; color: var(--muted); font-size: 14px; line-height: 1; padding: 2px; border-radius: 4px; }
   .tab .close:hover { color: var(--danger); background: #f3d6d2; }
   .tab input.rename { font: inherit; font-weight: 600; border: 1px solid var(--accent); border-radius: 4px; padding: 1px 4px; width: 110px; }
-  .tab.total-tab { margin-left: auto; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .tab.total-tab.active { background: var(--panel); }
-  .addtab { border: 1px dashed var(--line); background: none; color: var(--accent); border-radius: 8px 8px 0 0; padding: 8px 12px; }
+  .tab.total-tab { flex: none; background: var(--accent-soft); color: var(--accent); font-weight: 600; border-color: #bcd4f8; }
+  .tab.total-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: none; }
+  .addtab { border: 1px dashed #b9c3cf; background: none; color: var(--accent); border-radius: 8px; padding: 7px 12px; }
   .addtab:hover { background: var(--accent-soft); }
 
   .panel {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 0 var(--radius) var(--radius) var(--radius);
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 20px;
   }
 
@@ -88,8 +92,14 @@
   }
   .divider { border: none; border-top: 1px solid var(--line); margin: 18px 0; }
   .hint { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
-  .flatwrap { display: flex; gap: 10px; align-items: center; }
-  .flatwrap input { width: 110px; }
+  /* iPhone-style on/off switch */
+  .sw { position: relative; flex: none; width: 51px; height: 31px; padding: 0; border: none; align-self: center;
+        border-radius: 999px; background: #d9dde3; transition: background .18s ease; }
+  .sw.on { background: #34c759; }
+  .sw span { position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+             background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28); transition: transform .18s ease; }
+  .sw.on span { transform: translateX(20px); }
+  .sw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   /* Results */
   .results { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 6px; }
@@ -240,7 +250,7 @@
   <header>
     <div>
       <h1>MSS Packing Calculator</h1>
-      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.6</span></div>
+      <div class="sub">Bagging &amp; labeling costs — per unit, per pack, per case, per pallet, per order. <span id="ver">v1.7</span></div>
     </div>
     <button class="clear" onclick="clearOrder()">Clear order</button>
   </header>
@@ -259,8 +269,8 @@
 // Saved orders must survive every update. The rules: a failed read never leads
 // to a write (safe mode locks saving), the raw data is snapshotted before every
 // update, migrations only add or reshape, and no old storage key is deleted.
-const APP_VERSION = 'v1.6';
-const SCHEMA = 2;
+const APP_VERSION = 'v1.7';
+const SCHEMA = 3;
 const STORE_V1 = 'prepCostCalcV1';      // v1.0 to v1.5: a single order. Never deleted.
 const STORE_V2 = 'prepCostCalcV2';      // v1.6 on: the book of saved orders
 const BACKUP_KEY = 'prepCostCalc.backups';
@@ -275,18 +285,17 @@ function newItem(id) {
     soldByCase: false,
     casePack: '',
     packSize: '',
-    mode: 'itemized',          // 'itemized' | 'flat'
-    bagCost: '0.25',
+    bagCost: '0.25',           // blank = no bag; follows the pack size and case pack (see ruleAnswers)
     labelCost: '0.25',
-    setStickerCost: '0.15',    // blank or 0 = this product gets no "Sold as a Set" sticker
+    setStickerCost: '0.15',    // blank = no "Sold as a Set" sticker; follows the pack size
     caseLabelCost: '0.25',
-    flatRate: '',
     casesPerPallet: '',
     casesOrdered: '',
     repackOK: 'yes',           // uneven cases: 'yes' = units may cross boxes
     boxStrategy: 'fill',       // 'fill' | 'spread' | 'strict'
+    extraBoxes: false,         // the Additional boxes switch: off = no box charges at all
     reboxCount: '',            // extra boxes for odd repacks, e.g. a case that arrived open
-    extraBoxCost: '',
+    extraBoxCost: '',          // fills in at $1 when the switch comes on with nothing entered
     compareSizes: [],
   };
 }
@@ -363,6 +372,22 @@ const MIGRATIONS = {
       }
     }
     book.schema = 2;
+    return book;
+  },
+  // 2 -> 3 (v1.7): flat fee is gone, every item is itemized; and Additional
+  // boxes gets its own switch. The switch starts on wherever boxes already
+  // counted (an uneven case pack, or a box count or cost entered), so no total
+  // moves. A flat item keeps its mode and rate in the data, unused, for the record.
+  2(book) {
+    for (const o of book.orders) {
+      for (const it of o.items) {
+        if (it.extraBoxes === undefined)
+          it.extraBoxes = isUneven(it) || numInt(it.reboxCount) > 0 || num(it.extraBoxCost) > 0;
+        if (it.mode !== 'flat') delete it.mode;
+        if (!it.flatRate) delete it.flatRate;
+      }
+    }
+    book.schema = 3;
     return book;
   },
 };
@@ -484,6 +509,7 @@ const INT_FIELDS = ['casePack', 'packSize', 'casesOrdered', 'casesPerPallet', 'r
 // the click on whatever you were reaching for. The math already reads counts
 // as whole numbers and blank as 0, so nothing on screen needs recalculating.
 function tidyField(el, id, key) {
+  if (ruleEdit && ruleEdit.key === key) ruleEdit = null;   // done typing in this box
   const it = state.items.find(i => i.id === id);
   if (!it) return;
   const before = it[key];
@@ -501,10 +527,82 @@ function tidyField(el, id, key) {
 // A case pack that doesn't divide by the pack size is normal: leftover units
 // carry over into the next case's packs, so packs are counted across the whole
 // order, never rounded up case by case.
-function isUneven(it, packSizeOverride) {
-  const C = numInt(it.casePack);
-  const P = packSizeOverride !== undefined ? Math.floor(packSizeOverride) : numInt(it.packSize);
+function isUneven(it) {
+  const C = numInt(it.casePack), P = numInt(it.packSize);
   return !it.soldByCase && C > 0 && P > 0 && (C % P !== 0) && Math.floor(C / P) >= 1;
+}
+
+// ---------- automatic defaults ----------
+// A few boxes follow the case pack and pack size:
+//   pack size 1: no set sticker. Bigger packs: $0.15.
+//   pack size = case pack: no bag (the case is already the pack). Otherwise $0.25.
+//   uneven case pack: the Additional boxes switch comes on. Even: off.
+// A rule only writes when its answer changes, so a number typed by hand stays
+// put until a pack size or case pack change flips that same rule.
+const DEFAULTS = { bagCost: '0.25', setStickerCost: '0.15', extraBoxCost: '1' };
+const RULE_TRIGGERS = ['casePack', 'packSize'];
+
+function ruleAnswers(it) {
+  const C = numInt(it.casePack), P = numInt(it.packSize);
+  const both = C > 0 && P > 0;
+  return {
+    setStickerCost: P > 0 ? (P === 1 ? '' : DEFAULTS.setStickerCost) : null,   // null = no answer yet
+    bagCost: both ? (C === P ? '' : DEFAULTS.bagCost) : null,
+    extraBoxes: both ? isUneven(it) : null,
+  };
+}
+
+const ruleFields = it => ({ bagCost: it.bagCost, setStickerCost: it.setStickerCost,
+                            extraBoxes: it.extraBoxes, extraBoxCost: it.extraBoxCost });
+
+// Each rule whose answer differs from `before` takes its new answer; every
+// other box goes back to `kept`, its value before the edit started. So a
+// half-typed pack size ("1" on the way to "10") can't wipe a hand-typed cost.
+function applyRules(it, before, kept) {
+  const now = ruleAnswers(it);
+  for (const k of ['bagCost', 'setStickerCost', 'extraBoxes'])
+    it[k] = (now[k] !== null && now[k] !== before[k]) ? now[k] : kept[k];
+  // the switch coming on with no cost entered starts at $1 a box
+  it.extraBoxCost = (it.extraBoxes && !kept.extraBoxes && !(num(kept.extraBoxCost) > 0))
+    ? DEFAULTS.extraBoxCost : kept.extraBoxCost;
+}
+
+// What this item would be at another pack size, with the defaults applied the
+// same way typing that size would apply them. The compare table prices these.
+function atPackSize(it, size) {
+  const moved = Object.assign({}, it, { packSize: String(size) });
+  applyRules(moved, ruleAnswers(it), ruleFields(it));
+  return moved;
+}
+
+let ruleEdit = null;   // the case pack or pack size box being typed in, and what things were before
+
+function setTrigger(el, id, key) {
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  if (!ruleEdit || ruleEdit.it !== it || ruleEdit.key !== key)
+    ruleEdit = { it, key, before: ruleAnswers(it), kept: ruleFields(it) };
+  const was = ruleFields(it);
+  it[key] = el.value;
+  applyRules(it, ruleEdit.before, ruleEdit.kept);
+  save();
+  // update just the boxes that changed, so the box being typed in keeps focus
+  for (const k of ['bagCost', 'setStickerCost']) {
+    const box = document.querySelector(`#panel input[data-key="${k}"]`);
+    if (box && it[k] !== was[k]) box.value = Number(it[k]) === 0 ? '' : it[k];
+  }
+  drawBoxRow(it);   // its note names the case pack and pack size
+  renderResults(it);
+}
+
+function toggleBoxes(id) {
+  const it = state.items.find(i => i.id === id);
+  if (!it) return;
+  it.extraBoxes = !it.extraBoxes;
+  if (it.extraBoxes && !(num(it.extraBoxCost) > 0)) it.extraBoxCost = DEFAULTS.extraBoxCost;
+  save();
+  drawBoxRow(it);
+  renderResults(it);
 }
 
 // Every line of arithmetic behind the number, so it can be checked by eye.
@@ -522,19 +620,15 @@ function showWork(o) {
         : `${o.casePack} doesn’t divide by ${o.packSize}, so leftover units carry into the next case instead of making a partial pack in every case`
           + (o.looseUnits ? ` (the very last pack is ${o.looseUnits} of ${o.packSize})` : ''),
     });
-    W.push(o.mode === 'itemized'
-      ? { l: o.setApplies ? 'Bag + ASIN + set sticker' : 'Bag + ASIN label',
-          c: `${o.totalPacks} packs × (${fmt(o.bag)} + ${fmt(o.asin)}${o.setApplies ? ` + ${fmt(o.set)}` : ''})`,
-          v: fmt(o.totalPacks * o.perPackRate) }
-      : { l: 'Flat fee', c: `${o.totalPacks} packs × ${fmt(o.perPackRate)}`, v: fmt(o.totalPacks * o.perPackRate) });
+    W.push({ l: o.setApplies ? 'Bag + ASIN + set sticker' : 'Bag + ASIN label',
+             c: `${o.totalPacks} packs × (${fmt(o.bag)} + ${fmt(o.asin)}${o.setApplies ? ` + ${fmt(o.set)}` : ''})`,
+             v: fmt(o.totalPacks * o.perPackRate) });
   }
-  if (o.soldByCase || o.mode === 'itemized') {
-    W.push({ l: 'Packing labels', c: `${plural(o.boxes, 'box')} × ${fmt(o.boxRate)}`, v: fmt(o.boxes * o.boxRate),
-             n: o.boxNote || null });
-  }
+  W.push({ l: 'Packing labels', c: `${plural(o.boxes, 'box')} × ${fmt(o.boxRate)}`, v: fmt(o.boxes * o.boxRate),
+           n: o.boxNote || null });
   if (o.additional) {
     W.push({ l: 'Boxes for leftovers', c: `${o.additional} × ${fmt(o.extraRate)}`, v: fmt(o.additional * o.extraRate),
-             n: o.extraRate ? null : 'no cost per box entered yet' });
+             n: o.extraRate ? null : o.boxesOn ? 'no cost per box entered yet' : 'Additional boxes is switched off' });
   }
   if (o.rebox) {
     W.push({ l: 'Additional boxes', c: `${plural(o.rebox, 'box')} × ${fmt(o.extraRate)}`, v: fmt(o.rebox * o.extraRate),
@@ -558,31 +652,27 @@ function showWork(o) {
   return { work: W, workTotal, per: P };
 }
 
-function packRates(it, packSize) {
-  if (it.mode === 'itemized') {
-    // a blank cost box is $0: that step simply isn't done for this product
-    const bag = num(it.bagCost) || 0, label = num(it.labelCost) || 0, caseLabel = num(it.caseLabelCost) || 0;
-    const set = num(it.setStickerCost) || 0;
-    // a "Sold as a Set" sticker is David's call per product (a manufacturer twin
-    // pack can need one at pack size 1); leaving its cost blank means none
-    const setApplies = set > 0;
-    return { perPack: bag + label + (setApplies ? set : 0), boxCost: caseLabel,
-             bag, asin: label, set, setApplies };
-  }
-  const rate = num(it.flatRate);
-  if (rate === null) return { error: 'Enter the flat fee rate.' };
-  return { perPack: rate, boxCost: 0 };
+function packRates(it) {
+  // a blank cost box is $0: that step simply isn't done for this product
+  const bag = num(it.bagCost) || 0, label = num(it.labelCost) || 0, caseLabel = num(it.caseLabelCost) || 0;
+  const set = num(it.setStickerCost) || 0;
+  // a "Sold as a Set" sticker is David's call per product (a manufacturer twin
+  // pack can need one at pack size 1); leaving its cost blank means none
+  const setApplies = set > 0;
+  return { perPack: bag + label + (setApplies ? set : 0), boxCost: caseLabel,
+           bag, asin: label, set, setApplies };
 }
 
 const boxes = (n) => `${n} box${n === 1 ? '' : 'es'}`;
 
-function compute(it, packSizeOverride) {
-  const packSize = packSizeOverride !== undefined ? Math.floor(packSizeOverride) : numInt(it.packSize);
+function compute(it) {
+  const packSize = numInt(it.packSize);
   const casePack = numInt(it.casePack);
   const pallets = numInt(it.casesPerPallet);
   const N = numInt(it.casesOrdered);
-  const extraRate = num(it.extraBoxCost) || 0;
-  const rebox = numInt(it.reboxCount) || 0;
+  const boxesOn = !!it.extraBoxes;   // the Additional boxes switch: off = no box charges at all
+  const extraRate = boxesOn ? (num(it.extraBoxCost) || 0) : 0;
+  const rebox = boxesOn ? (numInt(it.reboxCount) || 0) : 0;
   const reboxCost = rebox * extraRate;
 
   if (it.soldByCase) {
@@ -597,23 +687,22 @@ function compute(it, packSizeOverride) {
     };
     return Object.assign(out, showWork({
       soldByCase: true, N, boxes: boxCount, boxRate: caseLabel, additional: 0,
-      rebox, extraRate, cost, perCase, perPallet: out.perPallet, pallets,
+      rebox, extraRate, boxesOn, cost, perCase, perPallet: out.perPallet, pallets,
     }));
   }
 
   if (!casePack || casePack <= 0) return { error: 'Enter the case pack (units per case).' };
   if (!packSize || packSize <= 0) return { error: 'Enter the pack size (units per bag).' };
-  const r = packRates(it, packSize);
-  if (r.error) return { error: r.error };
+  const r = packRates(it);
 
   const packsMax = Math.ceil(casePack / packSize);
   const packsMin = Math.floor(casePack / packSize);
-  const base = { mode: it.mode, casePack, packSize, pallets, N,
+  const base = { casePack, packSize, pallets, N, boxesOn,
                  perPackRate: r.perPack, bag: r.bag, asin: r.asin,
                  set: r.set, setApplies: r.setApplies, boxRate: r.boxCost };
 
   // even split — every case is identical
-  if (!isUneven(it, packSize)) {
+  if (!isUneven(it)) {
     const packsPerCase = packsMax;
     const boxCount = N || 1;
     const totalUnits = casePack * boxCount;
@@ -1064,6 +1153,8 @@ function renderBackups() {
 
 function renderTabs() {
   $tabs.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'tablist';
   for (const it of state.items) {
     const tab = document.createElement('div');
     tab.className = 'tab' + (state.active === it.id ? ' active' : '');
@@ -1072,22 +1163,21 @@ function renderTabs() {
     name.textContent = it.name;
     name.title = state.active === it.id ? 'Click to rename' : it.name;
     tab.appendChild(name);
-    if (state.items.length > 1 || true) {
-      const x = document.createElement('button');
-      x.className = 'close'; x.textContent = '✕'; x.title = 'Delete item';
-      x.onclick = (e) => { e.stopPropagation(); deleteItem(it.id); };
-      tab.appendChild(x);
-    }
+    const x = document.createElement('button');
+    x.className = 'close'; x.textContent = '✕'; x.title = 'Delete item';
+    x.onclick = (e) => { e.stopPropagation(); deleteItem(it.id); };
+    tab.appendChild(x);
     tab.onclick = () => {
       if (state.active !== it.id) { switchTab(it.id); return; }
       startRename(tab, name, it);
     };
-    $tabs.appendChild(tab);
+    list.appendChild(tab);
   }
   const add = document.createElement('button');
   add.className = 'addtab'; add.textContent = '+ Add item';
   add.onclick = addItem;
-  $tabs.appendChild(add);
+  list.appendChild(add);
+  $tabs.appendChild(list);
 
   const total = document.createElement('div');
   total.className = 'tab total-tab' + (state.active === 'total' ? ' active' : '');
@@ -1131,65 +1221,67 @@ function renderItemPanel(it) {
 
   let inputs = `<div class="row">${soldSeg}</div>
   <div class="row nowrap">
-    ${it.soldByCase ? '' : field('Case pack <span class="muted" style="font-weight:400">(units per case)</span>', numInput(it, 'casePack', '0', '1'), '')}
     ${field('Cases in order', numInput(it, 'casesOrdered', '0', '1'), '')}
+    ${it.soldByCase ? '' : field('Case pack <span class="muted" style="font-weight:400">(units per case)</span>', numInput(it, 'casePack', '0', '1'), '')}
     ${field('Cases per pallet <span class="muted" style="font-weight:400">(optional)</span>', numInput(it, 'casesPerPallet', '0', '1'), '')}
   </div>`;
 
   if (!it.soldByCase) {
-    const modeSeg = `
-      <div class="field"><label>Costing</label>
-        <div class="seg">
-          <button class="${it.mode === 'itemized' ? 'on' : ''}" onclick="set(${it.id},'mode','itemized');render()">Itemized</button>
-          <button class="${it.mode === 'flat' ? 'on' : ''}" onclick="set(${it.id},'mode','flat');render()">Flat fee</button>
-        </div>
-      </div>`;
-    if (it.mode === 'itemized') {
-      inputs += `<div class="row">
-        ${field('Pack size (units per bag)', numInput(it, 'packSize', '0', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
-        ${modeSeg}
-      </div>
-      <div class="row nowrap">
-        ${field('Bag Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'bagCost', '0.00', '0.01'))}
-        ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.00', '0.01'))}
-        ${field('Set Sticker Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'setStickerCost', '0.00', '0.01'),
-            'leave blank if not needed')}
-        ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.00', '0.01'))}
-      </div>`;
-    } else {
-      inputs += `<div class="row">
-        ${field('Pack size (units per bag)', numInput(it, 'packSize', '0', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
-        ${modeSeg}
-        ${field('Flat fee — all in <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'flatRate', '0.00', '0.01'), 'Pack size 1 = per unit')}
-      </div>`;
-    }
+    inputs += `<div class="row">
+      ${field('Pack size (units per bag)', numInput(it, 'packSize', '0', '1', `onkeydown="if(event.key==='Enter')addPackToCompare(${it.id},this.value)"`), '1 = bag every unit individually')}
+    </div>
+    <div class="row nowrap">
+      ${field('Bag Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'bagCost', '0.00', '0.01'))}
+      ${field('ASIN Label Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'labelCost', '0.00', '0.01'))}
+      ${field('Set Sticker Cost <span class="muted" style="font-weight:400">($/pack)</span>', numInput(it, 'setStickerCost', '0.00', '0.01'))}
+      ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.00', '0.01'))}
+    </div>`;
   } else {
     inputs += `<div class="row">
       ${field('Packing Label Cost <span class="muted" style="font-weight:400">($/case)</span>', numInput(it, 'caseLabelCost', '0.00', '0.01'))}
     </div>`;
   }
 
-  inputs += `<div class="row nowrap">
-    ${field('Additional Boxes <span class="muted" style="font-weight:400">(for odd repacks that require more boxes)</span>',
-        numInput(it, 'reboxCount', '0', '1'), 'e.g. a case that arrives open and has to be reboxed')}
-    ${field('Cost per Box <span class="muted" style="font-weight:400">($/box)</span>',
-        numInput(it, 'extraBoxCost', '0.00', '0.01'))}
-  </div>`;
+  inputs += `<div class="row nowrap" id="boxRow">${boxRowHtml(it)}</div>`;
 
   const resetBtn = `<div class="itembar">
     <button class="plain" onclick="duplicateItem(${it.id})" title="Copy this tab into a new tab">⧉ Duplicate item</button>
     <button class="clear" onclick="resetItem(${it.id})" title="Reset this item’s numbers to defaults">↺ Reset item</button>
   </div>`;
+  ruleEdit = null;   // a full redraw means no box is mid-edit
   $panel.innerHTML = resetBtn + inputs + '<div id="unevenBox"></div><hr class="divider"><div id="results"></div>' +
     (!it.soldByCase ? compareHtml(it) : '');
   renderResults(it);
 }
 
+// The Additional boxes switch, and its two boxes while it's on.
+function boxRowHtml(it) {
+  const on = !!it.extraBoxes, uneven = isUneven(it);
+  const why = uneven ? `${numInt(it.casePack)} doesn’t divide into packs of ${numInt(it.packSize)}` : '';
+  return `
+    <div class="field"><label>Additional boxes</label>
+      <button class="sw${on ? ' on' : ''}" role="switch" aria-checked="${on}" aria-label="Additional boxes"
+        onclick="toggleBoxes(${it.id})"><span></span></button>
+      <div class="hint">${on ? (why ? 'On: ' + why : 'On') : 'Off'}</div>
+    </div>
+    ${on ? field('Boxes to add', numInput(it, 'reboxCount', '0', '1'),
+        uneven ? 'on top of the boxing worked out below' : 'e.g. a case that arrives open and has to be reboxed') : ''}
+    ${on ? field('Cost per Box <span class="muted" style="font-weight:400">($/box)</span>', numInput(it, 'extraBoxCost', '0.00', '0.01')) : ''}`;
+}
+
+function drawBoxRow(it) {
+  const row = document.getElementById('boxRow');
+  if (row) row.innerHTML = boxRowHtml(it);
+}
+
 function numInput(it, key, placeholder, step, extra) {
   const v = it[key];
   const shown = (v === '' || v == null || Number(v) === 0) ? '' : v;   // a 0 shows as the grey placeholder
+  const onInput = RULE_TRIGGERS.includes(key)
+    ? `setTrigger(this,${it.id},'${key}')`
+    : `set(${it.id},'${key}',this.value);renderResults(activeItem())`;
   return `<input type="number" min="0" step="${step || 'any'}" value="${esc(shown)}" placeholder="${esc(placeholder || '')}"
-    oninput="set(${it.id},'${key}',this.value);renderResults(activeItem())" onblur="tidyField(this,${it.id},'${key}')" ${extra || ''}>`;
+    data-key="${key}" oninput="${onInput}" onblur="tidyField(this,${it.id},'${key}')" ${extra || ''}>`;
 }
 
 // Enter in the pack-size box drops that size straight into the compare section
@@ -1317,7 +1409,9 @@ function variantsHtml(it, r) {
         </div>
         <div class="boxopt-c">${fmt(v.cost)}<div class="boxopt-pc">${fmt(v.perCase)}/case</div></div>
       </div>`).join('')}
-    ${r.chosen.additional && !num(it.extraBoxCost)
+    ${!r.chosen.additional ? '' : !it.extraBoxes
+      ? `<div class="hint" style="margin-top:6px">Additional boxes is switched off, so the ${r.chosen.additional} extra box${r.chosen.additional === 1 ? '' : 'es'} cost nothing. Turn it on above to charge for them.</div>`
+      : !num(it.extraBoxCost)
       ? `<div class="hint" style="margin-top:6px">Enter a <strong>Cost per Box</strong> above to include the ${r.chosen.additional} extra box${r.chosen.additional === 1 ? '' : 'es'} in the total.</div>` : ''}
   </div>`;
 }
@@ -1369,7 +1463,7 @@ function refreshCompareTable(it) {
   const sizes = [...it.compareSizes].sort((a, b) => a - b);
   if (!sizes.length) { tbl.innerHTML = '<div class="hint">Add a pack size above to compare.</div>'; return; }
 
-  const cols = sizes.map(s => ({ size: s, r: compute(it, s) }));
+  const cols = sizes.map(s => ({ size: s, r: compute(atPackSize(it, s)) }));
   const valid = cols.filter(c => !c.r.error);
   const bestPerCase = valid.length ? Math.min(...valid.map(c => c.r.perCase)) : null;
   const pallets = num(it.casesPerPallet);
@@ -1414,61 +1508,26 @@ function orderTotal(order) {
 
 const plural = (n, w) => n === 1 ? `1 ${w}` : `${n} ${w === 'box' ? 'boxes' : w + 's'}`;
 
-// What the warehouse has to do for one item: steps and counts, never prices.
-// Built from the same compute() result as the money, so the two can't disagree.
-// A cost box left blank means that step isn't done, so it isn't listed.
-function prepSteps(it, n) {
-  const N = numInt(it.casesOrdered);
-  const C = numInt(it.casePack), P = numInt(it.packSize);
-  const out = [`${n}. ${it.name}` + (N ? `: ${plural(N, 'case')}` : '') + (!it.soldByCase && C ? `, ${C} per case` : '')];
-  const step = line => out.push('   - ' + line);
+// What the warehouse has to do for one item, as a short checklist with no
+// prices. A cost box left blank means that step isn't done, so it isn't listed.
+function prepSteps(it) {
   const r = compute(it);
-  if (r.error) { step('(not filled in yet)'); return out; }
-  if (!N) { step('(cases in order not entered yet)'); return out; }
-
-  if (it.soldByCase) {
-    step('Do not open. Resold by case.');
-    if (num(it.caseLabelCost) > 0) step(`Packing label on each case (${N})`);
-  } else {
-    const flat = it.mode === 'flat';          // flat fee doesn't say which steps it covers: list the standard three
-    const units = r.totalUnits, packs = r.totalPacks, what = P === 1 ? 'unit' : 'pack';
-    step(P === 1 ? `Open each case: ${units} units, each one bagged on its own`
-                 : `Open each case: ${units} units into packs of ${P} (${plural(packs, 'pack')})`);
-    if (flat || num(it.bagCost) > 0) step(`Bag each ${what} (${packs} bags)`);
-    if (flat || num(it.labelCost) > 0) step(`ASIN label on each ${what} (${packs})`);
-    if (!flat && num(it.setStickerCost) > 0) step(`"Sold as a Set" sticker on each ${what} (${packs})`);
-    if (!r.uneven) {
-      step(P === 1 ? 'Put the bagged units back in their cases' : `Put the packs back in their cases (${r.packsPerCase} per case)`);
-    } else {
-      const v = r.chosen;
-      if (v.key === 'strict') {
-        const left = packs - N * r.packsMin;
-        step(`Keep ${plural(r.packsMin, 'pack')} (${r.packsMin * P} units) in each original box`
-          + (v.additional ? `, put the ${plural(left, 'leftover pack')} in ${v.additional} new box${v.additional === 1 ? '' : 'es'}` : ''));
-      } else if (v.key === 'spread') {
-        step(`Repack into all ${N} boxes: ${v.detail}`);
-      } else {
-        step(`Repack into ${plural(v.boxes, 'box')}: ${v.detail}` + (v.unused ? ` (${v.unused} original box${v.unused === 1 ? '' : 'es'} left over)` : ''));
-      }
-    }
-    if (flat || num(it.caseLabelCost) > 0) step(`Packing label on each box (${r.boxCount})`);
-  }
-  if (r.rebox) step(`Rebox ${plural(r.rebox, 'case')} into new boxes`);
-  const cpp = numInt(it.casesPerPallet);
-  if (cpp > 0) {
-    const b = r.boxCount || N, full = Math.floor(b / cpp), loose = b - full * cpp;
-    const unit = it.soldByCase ? 'case' : 'box';
-    step(full
-      ? `Palletize: ${cpp} ${unit === 'box' ? 'boxes' : 'cases'} per pallet (${plural(full, 'pallet')}${loose ? ` + ${loose} loose` : ''})`
-      : `Palletize: all ${plural(b, unit)} on one partial pallet (a full pallet is ${cpp})`);
-  }
+  if (r.error) return [`${it.name} - not filled in yet`];
+  const out = [it.soldByCase ? `${it.name} - sold by case` : `${it.name} - ${numInt(it.packSize)} pack`];
+  const step = line => out.push('- ' + line);
+  if (!it.soldByCase && num(it.bagCost) > 0) step('Bag');
+  if (!it.soldByCase && num(it.labelCost) > 0) step('ASIN');
+  if (num(it.caseLabelCost) > 0) step('Box label');
+  if (!it.soldByCase && num(it.setStickerCost) > 0) step('Sold as set sticker');
+  if (r.chosen) step(`Boxes: ${r.chosen.detail}`);   // uneven case pack: how the packs get boxed
+  if (r.rebox) step(`Additional boxes (${r.rebox})`);
   return out;
 }
 
 function prepText(order) {
   const day = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const lines = [order.name.trim() ? `PREP: ${order.name.trim()} (${day})` : `PREP (${day})`, ''];
-  order.items.forEach((it, i) => lines.push(...prepSteps(it, i + 1), ''));
+  order.items.forEach(it => lines.push(...prepSteps(it), ''));
   return lines.join('\n').trim();
 }
 

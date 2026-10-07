@@ -1,4 +1,5 @@
 // Release gate: run before every push.   node tests/migrate.test.js
+// (it also runs tests/behavior.test.js at the end)
 //
 // Loads every sample in tests/fixtures/ (one per storage format the calculator
 // has ever written) through the real loading code in index.html, and fails if
@@ -7,27 +8,10 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const vm = require('vm');
+const harness = require('./harness');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const script = html.match(/<script>\n([\s\S]*?)\n<\/script>/)[1];
 const FIXTURES = path.join(__dirname, 'fixtures');
-
-// Run the page's script against a fake browser storage. No page is drawn.
-function boot(storage) {
-  const store = new Map(Object.entries(storage));
-  const localStorage = {
-    getItem: k => (store.has(k) ? store.get(k) : null),
-    setItem: (k, v) => { store.set(k, String(v)); },
-    removeItem: k => { store.delete(k); },
-  };
-  const document = { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], activeElement: null };
-  const ctx = vm.createContext({ localStorage, document, console, confirm: () => true, alert: () => {}, location: { reload() {} } });
-  const api = vm.runInContext(script + `
-    ;({ get book() { return book; }, get state() { return state; }, get safeMode() { return safeMode; },
-        orderTotal, set, save, prepText, readBackups })`, ctx);
-  return { api, store };
-}
+const boot = storage => harness.boot(storage, ['orderTotal', 'set', 'save', 'prepText', 'readBackups']);
 
 const cents = n => Math.round(n * 100) / 100;
 let failures = 0;
@@ -77,8 +61,10 @@ for (const file of fs.readdirSync(FIXTURES).filter(f => f.endsWith('.json')).sor
       eo.items.forEach((ei, j) => {
         const it = o.items[j];
         if (!it) return;
-        for (const [k, v] of Object.entries(ei))
+        for (const [k, v] of Object.entries(ei)) {
+          if (k === 'absent') { for (const gone of v) check(!(gone in it), `order ${i + 1} item ${j + 1} should no longer carry ${gone}`); continue; }
           check(JSON.stringify(it[k]) === JSON.stringify(v), `order ${i + 1} item ${j + 1} ${k} should be ${JSON.stringify(v)}, was ${JSON.stringify(it[k])}`);
+        }
         check(!('needsSetSticker' in it), `order ${i + 1} item ${j + 1} still carries the old switch`);
       });
       check(!/\$/.test(api.prepText(o)), `order ${i + 1} prep instructions contain a price`);
@@ -101,5 +87,12 @@ for (const file of fs.readdirSync(FIXTURES).filter(f => f.endsWith('.json')).sor
   }
 }
 
-console.log(failures ? `\n${failures} sample(s) failed. Do not ship.` : '\nAll samples pass. Safe to ship.');
-process.exit(failures ? 1 : 0);
+// The everyday behavior (automatic defaults, the boxes switch, the prep
+// checklist) runs as part of the same gate, so one command checks everything.
+console.log('');
+const behaviorFailures = require('./behavior.test.js').run();
+
+console.log(failures || behaviorFailures
+  ? `\n${failures} sample(s) and ${behaviorFailures} behavior check(s) failed. Do not ship.`
+  : '\nAll samples and behavior checks pass. Safe to ship.');
+process.exit(failures || behaviorFailures ? 1 : 0);
